@@ -54,8 +54,10 @@ exports.handler = async (event) => {
     const responseBody = JSON.parse(new TextDecoder().decode(bedrockResponse.body));
     const generatedText = responseBody.content[0].text;
 
-    // Convert to PDF (simplified - in production, use a PDF library)
-    const pdfContent = await generatePDF(generatedText, documentType, userProfile, jobApplication);
+    // Convert to PDF
+    const pdfContent = documentType === 'cv' 
+      ? await generateCVPDF(userProfile, jobApplication, generatedText)
+      : await generateCoverLetterPDF(userProfile, jobApplication, generatedText);
 
     // Upload to S3
     const fileName = `${documentType}_${sanitizeFileName(jobApplication.company)}_${new Date().toISOString().split('T')[0]}.pdf`;
@@ -137,7 +139,14 @@ ${userProfile.education?.map(edu => `
 
 Certifications:
 ${userProfile.certifications?.map(cert => `
-- ${cert.name} from ${cert.issuer} (${cert.issueDate})
+- ${cert.name}${cert.code ? ` (${cert.code})` : ''} - ${cert.issueDate}
+`).join('\n') || 'Not provided'}
+
+Projects:
+${userProfile.projects?.map(proj => `
+- ${proj.name}${proj.year ? ` (${proj.year})` : ''} - ${proj.description}
+  Technologies: ${proj.technologies?.join(', ') || 'N/A'}
+  Achievements: ${proj.achievements?.join(', ') || 'N/A'}
 `).join('\n') || 'Not provided'}
 
 Languages:
@@ -148,16 +157,19 @@ ${userProfile.languages?.map(lang => `
 Target Job Application:
 - Company: ${jobApplication.company}
 - Position: ${jobApplication.position}
-- Job Description/Requirements: ${jobApplication.notes || 'Not provided'}
+- Job Description: ${jobApplication.jobDescription || jobApplication.notes || 'Not provided'}
+- Requirements: ${jobApplication.requirements || 'Not provided'}
 
 Instructions:
 1. Create a professional CV tailored to the ${jobApplication.position} position at ${jobApplication.company}
 2. Highlight relevant skills and experience that match the job requirements
-3. Use clear sections: Contact Information, Professional Summary, Skills, Work Experience, Education, Certifications, Languages
+3. Use clear sections: PROFESSIONAL SUMMARY, TECHNICAL SKILLS, EDUCATION, CERTIFICATIONS, ACADEMIC & TECHNICAL PROJECTS, EMPLOYMENT EXPERIENCE
 4. Format it in a way that's easy to read and professional
 5. Keep it concise but comprehensive
 6. Use bullet points for achievements and responsibilities
 7. Make sure the CV emphasizes the most relevant experience for this specific role
+8. Organize skills by categories if possible (Programming, Cloud & DevOps, etc.)
+9. Separate technical and non-technical work experience if applicable
 
 Generate the CV now:`;
 }
@@ -217,27 +229,192 @@ function sanitizeFileName(name) {
     .substring(0, 50);
 }
 
-// Simplified PDF generation - in production, use a proper PDF library like pdfkit or puppeteer
-async function generatePDF(text, documentType, userProfile, jobApplication) {
-  // This is a placeholder - you'll need to use a proper PDF library
-  // For now, return a simple text representation
-  // In production, use pdfkit, puppeteer, or similar
-  
-  const pdfkit = require('pdfkit');
-  const stream = require('stream');
+// Generate CV PDF with proper formatting
+async function generateCVPDF(userProfile, jobApplication, generatedText) {
+  const PDFDocument = require('pdfkit');
   
   return new Promise((resolve, reject) => {
     const chunks = [];
-    const doc = new pdfkit();
+    const doc = new PDFDocument({ 
+      margin: 50,
+      size: 'LETTER'
+    });
     
     doc.on('data', chunk => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
     
-    // Add content
-    doc.fontSize(20).text(documentType === 'cv' ? 'CURRICULUM VITAE' : 'COVER LETTER', { align: 'center' });
+    // Header Section
+    const headerY = 50;
+    const pageWidth = doc.page.width;
+    const margin = 50;
+    
+    // Name (left side, large and bold)
+    doc.fontSize(24)
+       .font('Helvetica-Bold')
+       .text(userProfile.fullName, margin, headerY);
+    
+    // Contact info (right side, top)
+    let contactY = headerY;
+    const contactFontSize = 10;
+    
+    if (userProfile.address) {
+      doc.fontSize(contactFontSize)
+         .font('Helvetica')
+         .text(userProfile.address, pageWidth - margin - 200, contactY, { width: 200, align: 'right' });
+      contactY += 12;
+    }
+    
+    if (userProfile.phone) {
+      doc.fontSize(contactFontSize)
+         .text(userProfile.phone, pageWidth - margin - 200, contactY, { width: 200, align: 'right' });
+      contactY += 12;
+    }
+    
+    // Contact info (below name, centered)
+    const contactCenterY = headerY + 30;
+    const contactItems = [];
+    if (userProfile.email) contactItems.push(userProfile.email);
+    if (userProfile.portfolioUrl) contactItems.push(userProfile.portfolioUrl.replace(/^https?:\/\//, ''));
+    if (userProfile.linkedinUrl) contactItems.push(userProfile.linkedinUrl.replace(/^https?:\/\//, ''));
+    
+    if (contactItems.length > 0) {
+      doc.fontSize(10)
+         .font('Helvetica')
+         .text(contactItems.join(' | '), margin, contactCenterY, { align: 'center', width: pageWidth - (margin * 2) });
+    }
+    
+    // Horizontal line
+    doc.moveTo(margin, contactCenterY + 15)
+       .lineTo(pageWidth - margin, contactCenterY + 15)
+       .stroke();
+    
+    // Parse and format sections from generated text
+    let currentY = contactCenterY + 30;
+    
+    // Split text into sections by uppercase headers
+    const sections = generatedText.split(/\n(?=[A-Z][A-Z\s&]+:)/);
+    
+    sections.forEach(section => {
+      if (section.trim()) {
+        const lines = section.split('\n');
+        const sectionTitle = lines[0].trim();
+        const sectionContent = lines.slice(1).join('\n').trim();
+        
+        // Check if we need a new page
+        if (currentY > doc.page.height - 100) {
+          doc.addPage();
+          currentY = 50;
+        }
+        
+        // Section title (bold, uppercase)
+        doc.fontSize(12)
+           .font('Helvetica-Bold')
+           .text(sectionTitle.toUpperCase(), margin, currentY);
+        
+        currentY += 15;
+        
+        // Section content
+        doc.fontSize(10)
+           .font('Helvetica')
+           .text(sectionContent, margin, currentY, {
+             width: pageWidth - (margin * 2),
+             align: 'left',
+             lineGap: 4
+           });
+        
+        // Calculate height used
+        const textHeight = doc.heightOfString(sectionContent, {
+          width: pageWidth - (margin * 2),
+          lineGap: 4
+        });
+        
+        currentY += textHeight + 20;
+      }
+    });
+    
+    // Add page numbers
+    const pageCount = doc.bufferedPageRange().count;
+    for (let i = 0; i < pageCount; i++) {
+      doc.switchToPage(i);
+      doc.fontSize(8)
+         .font('Helvetica')
+         .text(
+           (i + 1).toString(),
+           pageWidth / 2,
+           doc.page.height - 30,
+           { align: 'center' }
+         );
+    }
+    
+    doc.end();
+  });
+}
+
+// Generate Cover Letter PDF
+async function generateCoverLetterPDF(userProfile, jobApplication, generatedText) {
+  const PDFDocument = require('pdfkit');
+  
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    const doc = new PDFDocument({ 
+      margin: 50,
+      size: 'LETTER'
+    });
+    
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    
+    // Header
+    doc.fontSize(12)
+       .font('Helvetica')
+       .text(userProfile.fullName, 50, 50);
+    
+    if (userProfile.address) {
+      doc.text(userProfile.address, 50, 65);
+    }
+    if (userProfile.phone) {
+      doc.text(userProfile.phone, 50, 80);
+    }
+    if (userProfile.email) {
+      doc.text(userProfile.email, 50, 95);
+    }
+    
+    // Date
+    const today = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    doc.text(today, 50, 130, { align: 'right' });
+    
+    // Recipient
+    doc.moveDown(2);
+    doc.text(jobApplication.contactName || 'Hiring Manager', 50);
+    doc.text(jobApplication.company, 50);
+    if (jobApplication.location) {
+      doc.text(jobApplication.location, 50);
+    }
+    
+    // Salutation
     doc.moveDown();
-    doc.fontSize(12).text(text);
+    doc.text(`Dear ${jobApplication.contactName || 'Hiring Manager'},`, 50);
+    
+    // Body
+    doc.moveDown();
+    doc.fontSize(11)
+       .text(generatedText, 50, doc.y, {
+         width: doc.page.width - 100,
+         align: 'left',
+         lineGap: 5
+       });
+    
+    // Closing
+    doc.moveDown(2);
+    doc.text('Sincerely,', 50);
+    doc.moveDown();
+    doc.text(userProfile.fullName, 50);
     
     doc.end();
   });

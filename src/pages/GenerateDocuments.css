@@ -2,6 +2,8 @@
   max-width: 1000px;
   margin: 0 auto;
   width: 100%;
+  box-sizing: border-box;
+  padding: 0;
 }
 
 .page-header {
@@ -308,24 +310,54 @@
 
 @media (max-width: 768px) {
   .generate-documents {
+    padding: 0;
+  }
+
+  .page-header {
     padding: 0 1rem;
   }
 
   .page-header h1 {
-    font-size: 2rem;
+    font-size: 1.75rem;
   }
 
-  .documents-grid {
-    grid-template-columns: 1fr;
+  .page-header p {
+    font-size: 1rem;
   }
 
-  .info-grid {
-    grid-template-columns: 1fr;
+  .back-btn {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 1rem;
   }
 
   .application-info,
   .documents-section {
+    padding: 1.5rem 1rem;
+    border-radius: 8px;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .documents-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .document-card {
     padding: 1.5rem;
+  }
+
+  .document-header h3 {
+    font-size: 1.25rem;
+  }
+
+  .btn-generate-both {
+    width: 100%;
+    max-width: 100%;
   }
 }
 

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HiHome, HiBriefcase, HiPlusCircle, HiMenu, HiX, HiLogout, HiUser, HiCog } from 'react-icons/hi';
+import { HiHome, HiBriefcase, HiPlusCircle, HiMenu, HiX, HiLogout, HiUser, HiCog, HiDocumentText, HiChevronDown } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
 import './Layout.css';
 
@@ -10,16 +10,36 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user, signOut } = useAuth();
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const isActive = (path: string) => location.pathname === path;
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [userMenuOpen]);
 
   const handleSignOut = async () => {
     try {
       await signOut();
       navigate('/login');
+      setUserMenuOpen(false);
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -66,28 +86,58 @@ export default function Layout({ children }: LayoutProps) {
               <span>New Application</span>
             </Link>
             {isAuthenticated && (
-              <>
-                <div className="nav-divider"></div>
-                <Link 
-                  to="/profile" 
-                  className={isActive('/profile') ? 'active' : ''}
-                  onClick={() => setMobileMenuOpen(false)}
+              <div className="user-menu-container" ref={userMenuRef}>
+                <button
+                  className="user-menu-toggle"
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  aria-label="User menu"
                 >
-                  <HiCog className="nav-icon" />
-                  <span>Profile</span>
-                </Link>
-                <div className="user-info">
-                  <HiUser className="user-icon" />
-                  <span className="user-name">{user?.signInDetails?.loginId || 'User'}</span>
-                </div>
-                <button 
-                  className="nav-signout"
-                  onClick={handleSignOut}
-                >
-                  <HiLogout className="nav-icon" />
-                  <span>Sign Out</span>
+                  <HiCog className="user-menu-icon" />
+                  <HiChevronDown className={`user-menu-chevron ${userMenuOpen ? 'open' : ''}`} />
                 </button>
-              </>
+                {userMenuOpen && (
+                  <div className="user-menu-dropdown">
+                    <div className="user-menu-header">
+                      <HiUser className="user-menu-avatar" />
+                      <div className="user-menu-info">
+                        <div className="user-menu-name">{user?.signInDetails?.loginId || 'User'}</div>
+                        <div className="user-menu-email">{user?.signInDetails?.loginId || ''}</div>
+                      </div>
+                    </div>
+                    <div className="user-menu-divider"></div>
+                    <Link
+                      to="/profile"
+                      className={`user-menu-item ${isActive('/profile') ? 'active' : ''}`}
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <HiUser className="user-menu-item-icon" />
+                      <span>Profile</span>
+                    </Link>
+                    <Link
+                      to="/generate-documents"
+                      className={`user-menu-item ${isActive('/generate-documents') ? 'active' : ''}`}
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <HiDocumentText className="user-menu-item-icon" />
+                      <span>Generate Documents</span>
+                    </Link>
+                    <div className="user-menu-divider"></div>
+                    <button
+                      className="user-menu-item user-menu-signout"
+                      onClick={handleSignOut}
+                    >
+                      <HiLogout className="user-menu-item-icon" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </nav>
         </div>

@@ -22,9 +22,7 @@ export default function GenerateDocuments() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
-      loadData();
-    }
+    loadData();
   }, [id]);
 
   async function loadData() {
@@ -35,6 +33,18 @@ export default function GenerateDocuments() {
       if (id) {
         const app = await getApplication(id);
         setApplication(app);
+      } else {
+        // Check for temp application from New Application page
+        const tempApp = localStorage.getItem('tempApplication');
+        if (tempApp) {
+          try {
+            const parsed = JSON.parse(tempApp);
+            setApplication(parsed);
+            localStorage.removeItem('tempApplication');
+          } catch (e) {
+            console.error('Error loading temp application:', e);
+          }
+        }
       }
 
       // Load user profile from localStorage

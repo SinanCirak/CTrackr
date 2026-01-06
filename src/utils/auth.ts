@@ -11,18 +11,26 @@ import {
   type SignUpOutput,
 } from 'aws-amplify/auth';
 
-// Configure Amplify
-const amplifyConfig = {
-  Auth: {
-    Cognito: {
-      userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || '',
-      userPoolClientId: import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID || '',
-      region: import.meta.env.VITE_AWS_REGION || 'us-east-1',
-    },
-  },
-};
+// Check if Cognito is configured
+const USE_MOCK_AUTH = !import.meta.env.VITE_COGNITO_USER_POOL_ID || !import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID;
 
-Amplify.configure(amplifyConfig);
+// Configure Amplify only if Cognito credentials are provided
+if (!USE_MOCK_AUTH) {
+  const amplifyConfig = {
+    Auth: {
+      Cognito: {
+        userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || '',
+        userPoolClientId: import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID || '',
+        region: import.meta.env.VITE_AWS_REGION || 'us-east-1',
+      },
+    },
+  };
+  Amplify.configure(amplifyConfig);
+}
+
+// Mock user storage
+let mockUser: any = null;
+const MOCK_USER_KEY = 'ctrackr_mock_user';
 
 export interface SignUpInput {
   email: string;
@@ -36,6 +44,28 @@ export interface SignInInput {
 }
 
 export async function handleSignUp(input: SignUpInput): Promise<SignUpOutput> {
+  if (USE_MOCK_AUTH) {
+    // Mock sign up - just store user info
+    const mockUserData = {
+      userId: `mock-${Date.now()}`,
+      username: input.email,
+      signInDetails: {
+        loginId: input.email,
+      },
+      attributes: {
+        email: input.email,
+        name: input.name,
+      },
+    };
+    localStorage.setItem(MOCK_USER_KEY, JSON.stringify(mockUserData));
+    mockUser = mockUserData;
+    return {
+      isSignUpComplete: true,
+      userId: mockUserData.userId,
+      nextStep: { signUpStep: 'DONE' },
+    };
+  }
+
   try {
     const { isSignUpComplete, userId, nextStep } = await signUp({
       username: input.email,
@@ -54,6 +84,39 @@ export async function handleSignUp(input: SignUpInput): Promise<SignUpOutput> {
 }
 
 export async function handleSignIn(input: SignInInput): Promise<SignInOutput> {
+  if (USE_MOCK_AUTH) {
+    // Mock sign in - check if user exists in localStorage
+    const savedUser = localStorage.getItem(MOCK_USER_KEY);
+    if (savedUser) {
+      const userData = JSON.parse(savedUser);
+      if (userData.username === input.email) {
+        mockUser = userData;
+        return {
+          isSignedIn: true,
+          nextStep: { signInStep: 'DONE' },
+        };
+      }
+    }
+    // If no user exists, create one (for development)
+    const mockUserData = {
+      userId: `mock-${Date.now()}`,
+      username: input.email,
+      signInDetails: {
+        loginId: input.email,
+      },
+      attributes: {
+        email: input.email,
+        name: input.email.split('@')[0],
+      },
+    };
+    localStorage.setItem(MOCK_USER_KEY, JSON.stringify(mockUserData));
+    mockUser = mockUserData;
+    return {
+      isSignedIn: true,
+      nextStep: { signInStep: 'DONE' },
+    };
+  }
+
   try {
     const { isSignedIn, nextStep } = await signIn({
       username: input.email,
@@ -66,6 +129,12 @@ export async function handleSignIn(input: SignInInput): Promise<SignInOutput> {
 }
 
 export async function handleSignOut(): Promise<void> {
+  if (USE_MOCK_AUTH) {
+    localStorage.removeItem(MOCK_USER_KEY);
+    mockUser = null;
+    return;
+  }
+
   try {
     await signOut();
   } catch (error) {
@@ -74,6 +143,11 @@ export async function handleSignOut(): Promise<void> {
 }
 
 export async function handleConfirmSignUp(email: string, confirmationCode: string): Promise<void> {
+  if (USE_MOCK_AUTH) {
+    // Mock confirmation - just return success
+    return;
+  }
+
   try {
     await confirmSignUp({
       username: email,
@@ -95,6 +169,23 @@ export async function handleResendSignUpCode(email: string): Promise<void> {
 }
 
 export async function getCurrentAuthUser() {
+  if (USE_MOCK_AUTH) {
+    // Check localStorage for mock user
+    if (mockUser) {
+      return mockUser;
+    }
+    const savedUser = localStorage.getItem(MOCK_USER_KEY);
+    if (savedUser) {
+      try {
+        mockUser = JSON.parse(savedUser);
+        return mockUser;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   try {
     const user = await getCurrentUser();
     return user;

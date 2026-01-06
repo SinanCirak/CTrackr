@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiPlusCircle, HiX, HiDocument, HiCloudUpload, HiClipboardCheck, HiInformationCircle, HiClock, HiLocationMarker, HiVideoCamera } from 'react-icons/hi';
+import { HiPlusCircle, HiX, HiDocument, HiCloudUpload, HiClipboardCheck, HiInformationCircle, HiSparkles } from 'react-icons/hi';
 import { createApplication, getUploadUrl, uploadFileToS3 } from '../utils/api';
 import type { CreateApplicationInput, ApplicationStatus } from '../types/application';
+import type { UserProfile } from '../types/user';
 import './NewApplication.css';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.example.com';
 
 export default function NewApplication() {
   const navigate = useNavigate();
@@ -11,12 +14,14 @@ export default function NewApplication() {
   const [error, setError] = useState<string | null>(null);
   const [uploadingCv, setUploadingCv] = useState(false);
   const [uploadingCoverLetter, setUploadingCoverLetter] = useState(false);
+  const [generatingCV, setGeneratingCV] = useState(false);
+  const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const [formData, setFormData] = useState<CreateApplicationInput>({
     company: '',
     position: '',
-    status: 'applied',
+    status: 'applied', // Always 'applied' for new applications
     appliedDate: new Date().toISOString().split('T')[0],
     location: '',
     jobUrl: '',
@@ -24,7 +29,23 @@ export default function NewApplication() {
     contactName: '',
     salary: '',
     notes: '',
+    jobDescription: '',
+    requirements: '',
   });
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    // Load user profile from localStorage
+    const savedProfile = localStorage.getItem('userProfile');
+    if (savedProfile) {
+      try {
+        const parsed = JSON.parse(savedProfile);
+        setUserProfile(parsed);
+      } catch (e) {
+        console.error('Error loading profile:', e);
+      }
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -124,6 +145,95 @@ export default function NewApplication() {
     }
   };
 
+  const handleGenerateDocument = async (documentType: 'cv' | 'coverLetter') => {
+    if (!formData.company || !formData.position) {
+      setError('Please fill in company and position first');
+      return;
+    }
+
+    if (!userProfile || !userProfile.fullName) {
+      setError('Please complete your profile first to generate documents');
+      navigate('/profile');
+      return;
+    }
+
+    if (documentType === 'cv' && formData.cvUrl) {
+      setError('CV already exists. Please remove it first to generate a new one.');
+      return;
+    }
+
+    if (documentType === 'coverLetter' && formData.coverLetterUrl) {
+      setError('Cover Letter already exists. Please remove it first to generate a new one.');
+      return;
+    }
+
+    try {
+      if (documentType === 'cv') {
+        setGeneratingCV(true);
+      } else {
+        setGeneratingCoverLetter(true);
+      }
+      setError(null);
+
+      const tempApp = {
+        id: 'temp',
+        company: formData.company,
+        position: formData.position,
+        status: 'applied', // Always 'applied' for new applications
+        appliedDate: formData.appliedDate,
+        location: formData.location,
+        salary: formData.salary,
+        jobUrl: formData.jobUrl,
+        contactName: formData.contactName,
+        contactEmail: formData.contactEmail,
+        notes: formData.notes,
+        jobDescription: formData.jobDescription,
+        requirements: formData.requirements,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const response = await fetch(`${API_BASE_URL}/generate-documents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userProfile,
+          jobApplication: tempApp,
+          documentType,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate ${documentType}`);
+      }
+
+      const data = await response.json();
+      
+      // Update form data with the generated document URL
+      if (documentType === 'cv') {
+        setFormData(prev => ({ ...prev, cvUrl: data.fileUrl }));
+        // Create a mock file object for display
+        const mockFile = new File([''], 'generated-cv.pdf', { type: 'application/pdf' });
+        setCvFile(mockFile);
+      } else {
+        setFormData(prev => ({ ...prev, coverLetterUrl: data.fileUrl }));
+        // Create a mock file object for display
+        const mockFile = new File([''], 'generated-cover-letter.pdf', { type: 'application/pdf' });
+        setCoverLetterFile(mockFile);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to generate ${documentType}`);
+    } finally {
+      if (documentType === 'cv') {
+        setGeneratingCV(false);
+      } else {
+        setGeneratingCoverLetter(false);
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -195,24 +305,6 @@ export default function NewApplication() {
 
         <div className="form-row">
           <div className="form-group">
-            <label htmlFor="status">Status *</label>
-            <select
-              id="status"
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              required
-            >
-              <option value="applied">Applied</option>
-              <option value="interview">Interview</option>
-              <option value="offer">Offer</option>
-              <option value="rejected">Rejected</option>
-              <option value="withdrawn">Withdrawn</option>
-              <option value="accepted">Accepted</option>
-            </select>
-          </div>
-
-          <div className="form-group">
             <label htmlFor="appliedDate">Applied Date *</label>
             <input
               type="date"
@@ -221,19 +313,6 @@ export default function NewApplication() {
               value={formData.appliedDate}
               onChange={handleChange}
               required
-            />
-          </div>
-        </div>
-
-        <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="interviewDate">Interview Date</label>
-            <input
-              type="date"
-              id="interviewDate"
-              name="interviewDate"
-              value={formData.interviewDate || ''}
-              onChange={handleChange}
             />
           </div>
 
@@ -248,57 +327,6 @@ export default function NewApplication() {
             />
           </div>
         </div>
-
-        {formData.interviewDate && (
-          <div className="form-section interview-details">
-            <h4>Interview Details</h4>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="interviewTime">
-                  <HiClock className="label-icon" />
-                  Interview Time
-                </label>
-                <input
-                  type="time"
-                  id="interviewTime"
-                  name="interviewTime"
-                  value={formData.interviewTime || ''}
-                  onChange={handleChange}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="interviewPlace">
-                  <HiLocationMarker className="label-icon" />
-                  Interview Place
-                </label>
-                <input
-                  type="text"
-                  id="interviewPlace"
-                  name="interviewPlace"
-                  value={formData.interviewPlace || ''}
-                  onChange={handleChange}
-                  placeholder="e.g., Office, Zoom, Teams"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="interviewLink">
-                <HiVideoCamera className="label-icon" />
-                Interview Link (Zoom/Meeting)
-              </label>
-              <input
-                type="url"
-                id="interviewLink"
-                name="interviewLink"
-                value={formData.interviewLink || ''}
-                onChange={handleChange}
-                placeholder="https://zoom.us/j/..."
-              />
-            </div>
-          </div>
-        )}
 
         <div className="form-row">
           <div className="form-group">
@@ -350,6 +378,36 @@ export default function NewApplication() {
           </div>
         </div>
 
+        <div className="form-section">
+          <h4>Job Details (for AI Generation)</h4>
+          <p className="section-description">Provide detailed information about the job to help AI generate better CV and Cover Letter.</p>
+          
+          <div className="form-group">
+            <label htmlFor="jobDescription">Job Description</label>
+            <textarea
+              id="jobDescription"
+              name="jobDescription"
+              value={formData.jobDescription || ''}
+              onChange={handleChange}
+              rows={6}
+              placeholder="Paste the full job description here..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="requirements">Requirements & Qualifications</label>
+            <textarea
+              id="requirements"
+              name="requirements"
+              value={formData.requirements || ''}
+              onChange={handleChange}
+              rows={6}
+              placeholder="List the required skills, experience, and qualifications..."
+            />
+          </div>
+
+        </div>
+
         <div className="form-group">
           <label htmlFor="notes">Notes</label>
           <textarea
@@ -391,6 +449,43 @@ export default function NewApplication() {
                   )}
                 </label>
               </div>
+              {formData.cvUrl && cvFile && (
+                <div className="uploaded-file-display">
+                  <div className="uploaded-file-info">
+                    <HiDocument className="uploaded-file-icon" />
+                    <span className="uploaded-file-name">{cvFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, cvUrl: undefined }));
+                        setCvFile(null);
+                      }}
+                      className="remove-file-btn"
+                      aria-label="Remove file"
+                    >
+                      <HiX />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => handleGenerateDocument('cv')}
+                disabled={generatingCV || !!formData.cvUrl}
+                className="btn-generate-doc"
+              >
+                {generatingCV ? (
+                  <>
+                    <div className="spinner-small"></div>
+                    <span>Generating CV...</span>
+                  </>
+                ) : (
+                  <>
+                    <HiSparkles className="btn-icon" />
+                    <span>Generate CV</span>
+                  </>
+                )}
+              </button>
             </div>
 
             <div className="form-group">
@@ -418,19 +513,58 @@ export default function NewApplication() {
                   )}
                 </label>
               </div>
+              {formData.coverLetterUrl && coverLetterFile && (
+                <div className="uploaded-file-display">
+                  <div className="uploaded-file-info">
+                    <HiDocument className="uploaded-file-icon" />
+                    <span className="uploaded-file-name">{coverLetterFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, coverLetterUrl: undefined }));
+                        setCoverLetterFile(null);
+                      }}
+                      className="remove-file-btn"
+                      aria-label="Remove file"
+                    >
+                      <HiX />
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => handleGenerateDocument('coverLetter')}
+                disabled={generatingCoverLetter || !!formData.coverLetterUrl}
+                className="btn-generate-doc"
+              >
+                {generatingCoverLetter ? (
+                  <>
+                    <div className="spinner-small"></div>
+                    <span>Generating Cover Letter...</span>
+                  </>
+                ) : (
+                  <>
+                    <HiSparkles className="btn-icon" />
+                    <span>Generate Cover Letter</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
 
         <div className="form-actions">
-          <button type="button" onClick={() => navigate('/applications')} className="btn btn-secondary">
-            <HiX className="btn-icon" />
-            <span>Cancel</span>
-          </button>
-          <button type="submit" disabled={loading} className="btn btn-primary">
-            <HiPlusCircle className="btn-icon" />
-            <span>{loading ? 'Creating...' : 'Create Application'}</span>
-          </button>
+          <div className="form-actions-buttons">
+            <button type="submit" disabled={loading} className="btn btn-primary">
+              <HiPlusCircle className="btn-icon" />
+              <span>{loading ? 'Creating...' : 'Create Application'}</span>
+            </button>
+            <button type="button" onClick={() => navigate('/applications')} className="btn btn-secondary">
+              <HiX className="btn-icon" />
+              <span>Cancel</span>
+            </button>
+          </div>
         </div>
       </form>
     </div>

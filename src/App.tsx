@@ -72,6 +72,16 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/generate-documents"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <GenerateDocuments />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

@@ -26,6 +26,8 @@ export interface JobApplication {
   contactName?: string;
   cvUrl?: string;
   coverLetterUrl?: string;
+  jobDescription?: string;
+  requirements?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +51,8 @@ export interface CreateApplicationInput {
   contactName?: string;
   cvUrl?: string;
   coverLetterUrl?: string;
+  jobDescription?: string;
+  requirements?: string;
 }
 
 export interface UpdateApplicationInput {
@@ -70,5 +74,7 @@ export interface UpdateApplicationInput {
   contactName?: string;
   cvUrl?: string;
   coverLetterUrl?: string;
+  jobDescription?: string;
+  requirements?: string;
 }
 

@@ -1,11 +1,17 @@
 .applications {
   width: 100%;
+  box-sizing: border-box;
+  padding: 0;
 }
 
 .page-hero {
   text-align: center;
   margin-bottom: 3rem;
   padding: 2rem 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .page-hero .hero-icon {
@@ -24,6 +30,8 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   font-weight: 700;
+  text-align: center;
+  width: 100%;
 }
 
 .page-hero p {
@@ -31,8 +39,13 @@
   color: #64748B;
   margin-bottom: 1.5rem;
   max-width: 600px;
+  width: 100%;
   margin-left: auto;
   margin-right: auto;
+  text-align: center;
+  line-height: 1.6;
+  padding: 0 1rem;
+  box-sizing: border-box;
 }
 
 .hero-actions {
@@ -40,6 +53,13 @@
   gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.hero-actions .btn {
+  width: auto;
+  min-width: auto;
 }
 
 .quick-stats {
@@ -153,6 +173,7 @@
 
 .application-card-wrapper {
   position: relative;
+  overflow: visible;
 }
 
 .application-card {
@@ -163,8 +184,13 @@
   text-decoration: none;
   color: inherit;
   transition: all 0.3s;
-  display: block;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: visible;
+  height: 100%;
+  min-height: 200px;
 }
 
 .application-card:hover {
@@ -179,6 +205,8 @@
   align-items: start;
   margin-bottom: 0.75rem;
   gap: 1rem;
+  position: relative;
+  z-index: 1;
 }
 
 .card-header h3 {
@@ -187,10 +215,15 @@
   font-weight: 600;
   color: #334155;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-container {
   position: relative;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .status-badge {
@@ -240,7 +273,7 @@
   border: 1px solid #E2E8F0;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 10;
+  z-index: 1000;
   min-width: 140px;
   overflow: hidden;
   animation: slideDown 0.2s ease-out;
@@ -294,7 +327,7 @@
   gap: 0.5rem;
   font-size: 0.875rem;
   color: #64748B;
-  margin-top: 1rem;
+  margin-top: auto;
   padding-top: 1rem;
   border-top: 1px solid #F1F5F9;
 }
@@ -374,6 +407,10 @@
 }
 
 @media (max-width: 768px) {
+  .applications {
+    padding: 0;
+  }
+
   .page-hero {
     padding: 1.5rem 0;
   }
@@ -388,7 +425,19 @@
 
   .page-hero p {
     font-size: 1rem;
-    padding: 0 1rem;
+    padding: 0;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: center;
+    max-width: 100%;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+    max-width: 300px;
+    justify-content: center;
   }
 
   .quick-stats {
@@ -410,18 +459,16 @@
     font-size: 1.75rem;
   }
 
-  .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
   .filter-bar {
     gap: 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .filter-bar button {
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
+    flex-shrink: 0;
   }
 
   .applications-grid {
@@ -433,8 +480,42 @@
     padding: 1.25rem;
   }
 
+  .card-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
   .card-header h3 {
     font-size: 1.125rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .status-container {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 100;
+  }
+
+  .status-dropdown {
+    right: 0;
+    left: auto;
+    position: fixed;
+    z-index: 10000;
+    max-width: 200px;
+  }
+
+  .application-card-wrapper {
+    overflow: visible;
+  }
+
+  .application-card {
+    overflow: visible;
+    position: relative;
+  }
+
+  .card-details {
+    font-size: 0.8125rem;
   }
 }
 

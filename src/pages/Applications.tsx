@@ -223,12 +223,16 @@ export default function Applications() {
                       {app.location}
                     </span>
                   )}
-                  {(app.cvUrl || app.coverLetterUrl) && (
-                    <span className="detail-item">
-                      <HiDocument className="detail-icon" />
-                      {[app.cvUrl && 'CV', app.coverLetterUrl && 'Cover Letter'].filter(Boolean).join(', ')}
-                    </span>
-                  )}
+                  <span className="detail-item">
+                    <HiDocument className="detail-icon" />
+                    {app.cvUrl && app.coverLetterUrl 
+                      ? 'CV, Cover Letter'
+                      : app.cvUrl 
+                        ? 'CV'
+                        : app.coverLetterUrl
+                          ? 'Cover Letter'
+                          : 'No documents'}
+                  </span>
                 </div>
               </Link>
             </div>
