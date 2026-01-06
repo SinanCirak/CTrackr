@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HiHome, HiBriefcase, HiPlusCircle, HiMenu, HiX, HiLogout, HiUser } from 'react-icons/hi';
+import { HiHome, HiBriefcase, HiPlusCircle, HiMenu, HiX, HiLogout, HiUser, HiCog } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
 import './Layout.css';
 
@@ -68,6 +68,14 @@ export default function Layout({ children }: LayoutProps) {
             {isAuthenticated && (
               <>
                 <div className="nav-divider"></div>
+                <Link 
+                  to="/profile" 
+                  className={isActive('/profile') ? 'active' : ''}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <HiCog className="nav-icon" />
+                  <span>Profile</span>
+                </Link>
                 <div className="user-info">
                   <HiUser className="user-icon" />
                   <span className="user-name">{user?.signInDetails?.loginId || 'User'}</span>

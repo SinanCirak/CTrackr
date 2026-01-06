@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import Applications from './pages/Applications';
 import ApplicationDetail from './pages/ApplicationDetail';
 import NewApplication from './pages/NewApplication';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -46,6 +47,16 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <ApplicationDetail />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Profile />
               </Layout>
             </ProtectedRoute>
           }
