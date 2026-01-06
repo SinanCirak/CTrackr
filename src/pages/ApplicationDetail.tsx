@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { HiArrowLeft, HiPencil, HiTrash, HiX, HiCheck, HiLocationMarker, HiCalendar, HiCurrencyDollar, HiLink, HiMail, HiUser, HiDocument, HiDownload, HiClock, HiVideoCamera } from 'react-icons/hi';
 import { getApplication, updateApplication, deleteApplication } from '../utils/api';
 import type { JobApplication, UpdateApplicationInput } from '../types/application';
 import './ApplicationDetail.css';
@@ -31,6 +32,9 @@ export default function ApplicationDetail() {
         status: data.status,
         appliedDate: data.appliedDate,
         interviewDate: data.interviewDate,
+        interviewTime: data.interviewTime,
+        interviewPlace: data.interviewPlace,
+        interviewLink: data.interviewLink,
         offerDate: data.offerDate,
         rejectedDate: data.rejectedDate,
         location: data.location,
@@ -83,14 +87,14 @@ export default function ApplicationDetail() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      applied: '#646cff',
-      interview: '#ffa500',
-      offer: '#00ff00',
-      rejected: '#ff4444',
-      withdrawn: '#888',
-      accepted: '#00cc00',
+      applied: '#6366F1',
+      interview: '#F59E0B',
+      offer: '#10B981',
+      rejected: '#EF4444',
+      withdrawn: '#6B7280',
+      accepted: '#10B981',
     };
-    return colors[status] || '#888';
+    return colors[status] || '#6B7280';
   };
 
   if (loading) {
@@ -109,16 +113,19 @@ export default function ApplicationDetail() {
     <div className="application-detail">
       <div className="detail-header">
         <button onClick={() => navigate('/applications')} className="back-btn">
-          ← Back
+          <HiArrowLeft className="btn-icon" />
+          <span>Back</span>
         </button>
         <div className="header-actions">
           {!editing && (
             <>
               <button onClick={() => setEditing(true)} className="btn btn-secondary">
-                Edit
+                <HiPencil className="btn-icon" />
+                <span>Edit</span>
               </button>
               <button onClick={handleDelete} className="btn btn-danger">
-                Delete
+                <HiTrash className="btn-icon" />
+                <span>Delete</span>
               </button>
             </>
           )}
@@ -126,6 +133,23 @@ export default function ApplicationDetail() {
       </div>
 
       {error && <div className="error-message">{error}</div>}
+
+      {!editing && application && (
+        <div className="application-hero">
+          <div className="hero-content">
+            <h1>{application.company}</h1>
+            <p className="hero-position">{application.position}</p>
+            <div className="hero-status">
+              <span 
+                className="status-badge-large"
+                style={{ backgroundColor: getStatusColor(application.status) }}
+              >
+                {application.status}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editing ? (
         <form onSubmit={handleUpdate} className="application-form">
@@ -205,6 +229,48 @@ export default function ApplicationDetail() {
             </div>
           </div>
 
+          {formData.interviewDate && (
+            <div className="form-section interview-details">
+              <h4>Interview Details</h4>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="interviewTime">Interview Time</label>
+                  <input
+                    type="time"
+                    id="interviewTime"
+                    name="interviewTime"
+                    value={formData.interviewTime || ''}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="interviewPlace">Interview Place</label>
+                  <input
+                    type="text"
+                    id="interviewPlace"
+                    name="interviewPlace"
+                    value={formData.interviewPlace || ''}
+                    onChange={handleChange}
+                    placeholder="e.g., Office, Zoom, Teams"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="interviewLink">Interview Link (Zoom/Meeting)</label>
+                <input
+                  type="url"
+                  id="interviewLink"
+                  name="interviewLink"
+                  value={formData.interviewLink || ''}
+                  onChange={handleChange}
+                  placeholder="https://zoom.us/j/..."
+                />
+              </div>
+            </div>
+          )}
+
           <div className="form-group">
             <label htmlFor="notes">Notes</label>
             <textarea
@@ -218,63 +284,102 @@ export default function ApplicationDetail() {
 
           <div className="form-actions">
             <button type="button" onClick={() => setEditing(false)} className="btn btn-secondary">
-              Cancel
+              <HiX className="btn-icon" />
+              <span>Cancel</span>
             </button>
             <button type="submit" className="btn btn-primary">
-              Save Changes
+              <HiCheck className="btn-icon" />
+              <span>Save Changes</span>
             </button>
           </div>
         </form>
       ) : (
         <div className="detail-content">
           <div className="detail-card">
-            <div className="card-header">
-              <div>
-                <h1>{application.company}</h1>
-                <p className="position">{application.position}</p>
-              </div>
-              <span 
-                className="status-badge"
-                style={{ backgroundColor: getStatusColor(application.status) }}
-              >
-                {application.status}
-              </span>
-            </div>
 
             <div className="detail-section">
               <h3>Application Details</h3>
               <div className="detail-grid">
                 <div className="detail-item">
-                  <span className="label">Applied Date:</span>
+                  <span className="label">
+                    <HiCalendar className="label-icon" />
+                    Applied Date
+                  </span>
                   <span className="value">{new Date(application.appliedDate).toLocaleDateString()}</span>
                 </div>
                 {application.interviewDate && (
-                  <div className="detail-item">
-                    <span className="label">Interview Date:</span>
-                    <span className="value">{new Date(application.interviewDate).toLocaleDateString()}</span>
-                  </div>
+                  <>
+                    <div className="detail-item">
+                      <span className="label">
+                        <HiCalendar className="label-icon" />
+                        Interview Date
+                      </span>
+                      <span className="value">{new Date(application.interviewDate).toLocaleDateString()}</span>
+                    </div>
+                    {application.interviewTime && (
+                      <div className="detail-item">
+                        <span className="label">
+                          <HiClock className="label-icon" />
+                          Interview Time
+                        </span>
+                        <span className="value">{application.interviewTime}</span>
+                      </div>
+                    )}
+                    {application.interviewPlace && (
+                      <div className="detail-item">
+                        <span className="label">
+                          <HiLocationMarker className="label-icon" />
+                          Interview Place
+                        </span>
+                        <span className="value">{application.interviewPlace}</span>
+                      </div>
+                    )}
+                    {application.interviewLink && (
+                      <div className="detail-item">
+                        <span className="label">
+                          <HiVideoCamera className="label-icon" />
+                          Interview Link
+                        </span>
+                        <a href={application.interviewLink} target="_blank" rel="noopener noreferrer" className="value">
+                          Join Interview (Zoom/Meeting)
+                        </a>
+                      </div>
+                    )}
+                  </>
                 )}
                 {application.offerDate && (
                   <div className="detail-item">
-                    <span className="label">Offer Date:</span>
+                    <span className="label">
+                      <HiCalendar className="label-icon" />
+                      Offer Date
+                    </span>
                     <span className="value">{new Date(application.offerDate).toLocaleDateString()}</span>
                   </div>
                 )}
                 {application.location && (
                   <div className="detail-item">
-                    <span className="label">Location:</span>
+                    <span className="label">
+                      <HiLocationMarker className="label-icon" />
+                      Location
+                    </span>
                     <span className="value">{application.location}</span>
                   </div>
                 )}
                 {application.salary && (
                   <div className="detail-item">
-                    <span className="label">Salary:</span>
+                    <span className="label">
+                      <HiCurrencyDollar className="label-icon" />
+                      Salary
+                    </span>
                     <span className="value">{application.salary}</span>
                   </div>
                 )}
                 {application.jobUrl && (
                   <div className="detail-item">
-                    <span className="label">Job URL:</span>
+                    <span className="label">
+                      <HiLink className="label-icon" />
+                      Job URL
+                    </span>
                     <a href={application.jobUrl} target="_blank" rel="noopener noreferrer" className="value">
                       View Job Posting
                     </a>
@@ -289,13 +394,19 @@ export default function ApplicationDetail() {
                 <div className="detail-grid">
                   {application.contactName && (
                     <div className="detail-item">
-                      <span className="label">Name:</span>
+                      <span className="label">
+                        <HiUser className="label-icon" />
+                        Name
+                      </span>
                       <span className="value">{application.contactName}</span>
                     </div>
                   )}
                   {application.contactEmail && (
                     <div className="detail-item">
-                      <span className="label">Email:</span>
+                      <span className="label">
+                        <HiMail className="label-icon" />
+                        Email
+                      </span>
                       <a href={`mailto:${application.contactEmail}`} className="value">
                         {application.contactEmail}
                       </a>
@@ -309,6 +420,41 @@ export default function ApplicationDetail() {
               <div className="detail-section">
                 <h3>Notes</h3>
                 <p className="notes">{application.notes}</p>
+              </div>
+            )}
+
+            {(application.cvUrl || application.coverLetterUrl) && (
+              <div className="detail-section">
+                <h3>Uploaded Documents</h3>
+                <p className="section-description">Access your CV and cover letter files</p>
+                <div className="documents-grid">
+                  {application.cvUrl && (
+                    <a href={application.cvUrl} target="_blank" rel="noopener noreferrer" className="document-card">
+                      <div className="document-icon-wrapper">
+                        <HiDocument className="document-icon" />
+                      </div>
+                      <div className="document-content">
+                        <h4>CV / Resume</h4>
+                        <p>Click to view or download</p>
+                        <span className="document-url">{application.cvUrl.substring(0, 50)}...</span>
+                      </div>
+                      <HiDownload className="download-icon" />
+                    </a>
+                  )}
+                  {application.coverLetterUrl && (
+                    <a href={application.coverLetterUrl} target="_blank" rel="noopener noreferrer" className="document-card">
+                      <div className="document-icon-wrapper">
+                        <HiDocument className="document-icon" />
+                      </div>
+                      <div className="document-content">
+                        <h4>Cover Letter</h4>
+                        <p>Click to view or download</p>
+                        <span className="document-url">{application.coverLetterUrl.substring(0, 50)}...</span>
+                      </div>
+                      <HiDownload className="download-icon" />
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 

@@ -1,0 +1,11 @@
+{
+  "name": "get-upload-url",
+  "version": "1.0.0",
+  "description": "Lambda function to generate S3 presigned URLs for file uploads",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1500.0",
+    "uuid": "^9.0.1"
+  }
+}
+

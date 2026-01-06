@@ -45,6 +45,36 @@ resource "aws_s3_bucket" "website" {
   }
 }
 
+# S3 Bucket for File Uploads (CV and Cover Letters)
+resource "aws_s3_bucket" "uploads" {
+  bucket = "${var.project_name}-uploads-${var.environment}"
+
+  tags = {
+    Name        = "${var.project_name}-uploads"
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
+
+resource "aws_s3_bucket_cors_configuration" "uploads" {
+  bucket = aws_s3_bucket.uploads.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "PUT", "POST", "HEAD"]
+    allowed_origins = ["*"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
+
+resource "aws_s3_bucket_versioning" "uploads" {
+  bucket = aws_s3_bucket.uploads.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
 resource "aws_s3_bucket_website_configuration" "website" {
   bucket = aws_s3_bucket.website.id
 
@@ -106,7 +136,7 @@ resource "aws_iam_role" "lambda_role" {
   }
 }
 
-# IAM Policy for Lambda to access DynamoDB
+# IAM Policy for Lambda to access DynamoDB and S3
 resource "aws_iam_role_policy" "lambda_dynamodb" {
   name = "${var.project_name}-lambda-dynamodb-policy"
   role = aws_iam_role.lambda_role.id
@@ -126,6 +156,17 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
         ]
         Resource = [
           aws_dynamodb_table.applications.arn
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          "${aws_s3_bucket.uploads.arn}/*"
         ]
       },
       {
@@ -170,6 +211,12 @@ data "archive_file" "delete_application" {
   type        = "zip"
   source_dir  = "${path.module}/../lambda/delete-application"
   output_path = "${path.module}/../lambda/delete-application.zip"
+}
+
+data "archive_file" "get_upload_url" {
+  type        = "zip"
+  source_dir  = "${path.module}/../lambda/get-upload-url"
+  output_path = "${path.module}/../lambda/get-upload-url.zip"
 }
 
 # Lambda Functions
@@ -278,6 +325,27 @@ resource "aws_lambda_function" "delete_application" {
   }
 }
 
+resource "aws_lambda_function" "get_upload_url" {
+  filename         = data.archive_file.get_upload_url.output_path
+  function_name    = "${var.project_name}-get-upload-url"
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "index.handler"
+  source_code_hash = data.archive_file.get_upload_url.output_base64sha256
+  runtime          = "nodejs20.x"
+  timeout          = 10
+
+  environment {
+    variables = {
+      UPLOADS_BUCKET = aws_s3_bucket.uploads.id
+    }
+  }
+
+  tags = {
+    Name    = "${var.project_name}-get-upload-url"
+    Project = var.project_name
+  }
+}
+
 # API Gateway
 resource "aws_apigatewayv2_api" "api" {
   name          = "${var.project_name}-api"
@@ -332,6 +400,13 @@ resource "aws_apigatewayv2_integration" "delete_application" {
   integration_method = "POST"
 }
 
+resource "aws_apigatewayv2_integration" "get_upload_url" {
+  api_id           = aws_apigatewayv2_api.api.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = aws_lambda_function.get_upload_url.invoke_arn
+  integration_method = "POST"
+}
+
 # API Gateway Routes
 resource "aws_apigatewayv2_route" "create_application" {
   api_id    = aws_apigatewayv2_api.api.id
@@ -361,6 +436,12 @@ resource "aws_apigatewayv2_route" "delete_application" {
   api_id    = aws_apigatewayv2_api.api.id
   route_key = "DELETE /applications/{id}"
   target    = "integrations/${aws_apigatewayv2_integration.delete_application.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_upload_url" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "POST /upload-url"
+  target    = "integrations/${aws_apigatewayv2_integration.get_upload_url.id}"
 }
 
 # Lambda Permissions
@@ -400,6 +481,14 @@ resource "aws_lambda_permission" "delete_application" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.delete_application.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "get_upload_url" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.get_upload_url.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
 }

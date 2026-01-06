@@ -13,6 +13,9 @@ export interface JobApplication {
   status: ApplicationStatus;
   appliedDate: string;
   interviewDate?: string;
+  interviewTime?: string;
+  interviewPlace?: string;
+  interviewLink?: string;
   offerDate?: string;
   rejectedDate?: string;
   notes?: string;
@@ -21,6 +24,8 @@ export interface JobApplication {
   jobUrl?: string;
   contactEmail?: string;
   contactName?: string;
+  cvUrl?: string;
+  coverLetterUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +36,9 @@ export interface CreateApplicationInput {
   status?: ApplicationStatus;
   appliedDate: string;
   interviewDate?: string;
+  interviewTime?: string;
+  interviewPlace?: string;
+  interviewLink?: string;
   offerDate?: string;
   rejectedDate?: string;
   notes?: string;
@@ -39,6 +47,8 @@ export interface CreateApplicationInput {
   jobUrl?: string;
   contactEmail?: string;
   contactName?: string;
+  cvUrl?: string;
+  coverLetterUrl?: string;
 }
 
 export interface UpdateApplicationInput {
@@ -47,6 +57,9 @@ export interface UpdateApplicationInput {
   status?: ApplicationStatus;
   appliedDate?: string;
   interviewDate?: string;
+  interviewTime?: string;
+  interviewPlace?: string;
+  interviewLink?: string;
   offerDate?: string;
   rejectedDate?: string;
   notes?: string;
@@ -55,5 +68,7 @@ export interface UpdateApplicationInput {
   jobUrl?: string;
   contactEmail?: string;
   contactName?: string;
+  cvUrl?: string;
+  coverLetterUrl?: string;
 }
 
