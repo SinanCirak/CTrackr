@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { HiArrowLeft, HiPencil, HiTrash, HiX, HiCheck, HiLocationMarker, HiCalendar, HiCurrencyDollar, HiLink, HiMail, HiUser, HiDocument, HiDownload, HiClock, HiVideoCamera } from 'react-icons/hi';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { HiArrowLeft, HiPencil, HiTrash, HiX, HiCheck, HiLocationMarker, HiCalendar, HiCurrencyDollar, HiLink, HiMail, HiUser, HiDocument, HiDownload, HiClock, HiVideoCamera, HiSparkles } from 'react-icons/hi';
 import { getApplication, updateApplication, deleteApplication } from '../utils/api';
 import type { JobApplication, UpdateApplicationInput } from '../types/application';
 import './ApplicationDetail.css';
@@ -119,6 +119,10 @@ export default function ApplicationDetail() {
         <div className="header-actions">
           {!editing && (
             <>
+              <Link to={`/applications/${id}/generate`} className="btn btn-primary">
+                <HiSparkles className="btn-icon" />
+                <span>Generate Documents</span>
+              </Link>
               <button onClick={() => setEditing(true)} className="btn btn-secondary">
                 <HiPencil className="btn-icon" />
                 <span>Edit</span>

@@ -7,6 +7,7 @@ import Applications from './pages/Applications';
 import ApplicationDetail from './pages/ApplicationDetail';
 import NewApplication from './pages/NewApplication';
 import Profile from './pages/Profile';
+import GenerateDocuments from './pages/GenerateDocuments';
 
 function App() {
   return (
@@ -57,6 +58,16 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Profile />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/applications/:id/generate"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <GenerateDocuments />
               </Layout>
             </ProtectedRoute>
           }
