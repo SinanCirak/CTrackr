@@ -1,0 +1,6 @@
+aws_region   = "us-east-1"
+project_name = "ctrackr"
+environment  = "prod"
+bucket_name  = "ctrackr-website-prod"
+domain_name  = ""
+

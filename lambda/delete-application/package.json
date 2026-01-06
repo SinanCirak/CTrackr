@@ -1,0 +1,10 @@
+{
+  "name": "delete-application",
+  "version": "1.0.0",
+  "description": "Lambda function to delete a job application",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1500.0"
+  }
+}
+
