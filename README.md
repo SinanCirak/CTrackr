@@ -275,8 +275,28 @@ VITE_AWS_REGION=ca-central-1
 
 ## ☁️ AWS Services & Resources
 
+### Authentication & User Management
+- **AWS Cognito**:
+  - **User Pool** (`${project_name}-user-pool`):
+    - Email-based authentication
+    - Auto-verified email attributes
+    - Password policy (min 8 chars, uppercase, lowercase, numbers, symbols)
+    - Account recovery via verified email
+    - Email verification with custom templates
+    - Email sending via AWS SES
+  - **User Pool Client** (`${project_name}-client`):
+    - OAuth 2.0 flows (code, implicit)
+    - OAuth scopes (email, openid, profile)
+    - Callback URLs for domain and localhost
+    - Logout URLs configured
+    - User password authentication enabled
+    - Refresh token authentication enabled
+  - **User Pool Domain** (`${project_name}-auth`):
+    - Hosted UI for authentication
+    - Custom domain support (if domain provided)
+
 ### Compute & API
-- **AWS Lambda** (8 functions):
+- **AWS Lambda** (9 functions):
   - `create-application` - Create new job applications
   - `get-application` - Retrieve single application
   - `list-applications` - List applications with user filtering
@@ -315,15 +335,6 @@ VITE_AWS_REGION=ca-central-1
   - Custom domain support
   - SSL/TLS via ACM
   - IPv4 and IPv6 support
-
-### Authentication
-- **AWS Cognito**:
-  - User Pool for authentication
-  - User Pool Client for application
-  - User Pool Domain (hosted UI)
-  - Email verification via SES
-  - Password policy configured
-  - Account recovery settings
 
 ### Networking & DNS
 - **AWS Route 53**:
