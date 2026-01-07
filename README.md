@@ -370,7 +370,7 @@ VITE_AWS_REGION=ca-central-1
   - IAM role policy for:
     - DynamoDB access (applications & user_profiles tables)
     - S3 access (uploads bucket)
-    - Bedrock access (for future features)
+    - Bedrock access (for AI-assisted document generation)
 - **Lambda Permissions**:
   - API Gateway invoke permissions for all Lambda functions
 
