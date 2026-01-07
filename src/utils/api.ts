@@ -1,4 +1,5 @@
 import type { JobApplication, CreateApplicationInput, UpdateApplicationInput } from '../types/application';
+import type { UserProfile } from '../types/user';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.example.com';
 const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true' || !import.meta.env.VITE_API_BASE_URL;
@@ -189,17 +190,32 @@ export async function getApplication(id: string): Promise<JobApplication> {
   return response.json();
 }
 
-export async function listApplications(): Promise<JobApplication[]> {
+export async function listApplications(userId?: string): Promise<JobApplication[]> {
   if (USE_MOCK_DATA) {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
     return [...mockApplications];
   }
 
-  const response = await fetch(`${API_BASE_URL}/applications`);
+  const url = userId 
+    ? `${API_BASE_URL}/applications?userId=${encodeURIComponent(userId)}`
+    : `${API_BASE_URL}/applications`;
+
+  const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`Failed to list applications: ${response.statusText}`);
+    const errorText = await response.text();
+    let errorMessage = `Failed to list applications: ${response.statusText}`;
+    try {
+      const errorData = JSON.parse(errorText);
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch (e) {
+      // If response is not JSON, use the text
+      if (errorText) {
+        errorMessage = errorText;
+      }
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();
@@ -288,5 +304,52 @@ export async function uploadFileToS3(uploadUrl: string, file: File): Promise<voi
   if (!response.ok) {
     throw new Error(`Failed to upload file: ${response.statusText}`);
   }
+}
+
+// Profile API functions
+export async function getProfile(userId: string): Promise<UserProfile | null> {
+  if (USE_MOCK_DATA) {
+    // Return null for mock data - will use localStorage
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/profile?userId=${userId}`);
+
+    if (response.status === 404) {
+      return null; // Profile doesn't exist yet
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to get profile: ${response.statusText}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error getting profile:', error);
+    return null;
+  }
+}
+
+export async function updateProfile(profile: UserProfile): Promise<UserProfile> {
+  if (USE_MOCK_DATA) {
+    // Save to localStorage for mock data
+    localStorage.setItem('userProfile', JSON.stringify(profile));
+    return profile;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(profile),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update profile: ${response.statusText}`);
+  }
+
+  return response.json();
 }
 

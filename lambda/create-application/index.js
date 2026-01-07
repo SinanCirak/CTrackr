@@ -27,11 +27,15 @@ exports.handler = async (event) => {
     const now = new Date().toISOString();
     const application = {
       id: uuidv4(),
+      userId: body.userId || null, // Add userId if provided
       company: body.company,
       position: body.position,
       status: body.status || 'applied',
       appliedDate: body.appliedDate,
       interviewDate: body.interviewDate || null,
+      interviewTime: body.interviewTime || null,
+      interviewPlace: body.interviewPlace || null,
+      interviewLink: body.interviewLink || null,
       offerDate: body.offerDate || null,
       rejectedDate: body.rejectedDate || null,
       notes: body.notes || null,
@@ -40,6 +44,10 @@ exports.handler = async (event) => {
       jobUrl: body.jobUrl || null,
       contactEmail: body.contactEmail || null,
       contactName: body.contactName || null,
+      cvUrl: body.cvUrl || null,
+      coverLetterUrl: body.coverLetterUrl || null,
+      jobDescription: body.jobDescription || null,
+      requirements: body.requirements || null,
       createdAt: now,
       updatedAt: now,
     };

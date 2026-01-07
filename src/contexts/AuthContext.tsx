@@ -1,9 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getCurrentAuthUser, getAuthSession, handleSignOut, type SignInInput, type SignUpInput } from '../utils/auth';
-import type { User } from 'aws-amplify/auth';
+import { getCurrentAuthUser, handleSignOut, type SignInInput, type SignUpInput } from '../utils/auth';
 
 interface AuthContextType {
-  user: User | null;
+  user: any | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   signIn: (input: SignInInput) => Promise<void>;
@@ -15,7 +14,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshAuth = async () => {

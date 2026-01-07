@@ -9,7 +9,7 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const { fileName, fileType } = body;
+    const { fileName, fileType, userId, companyName, fileCategory } = body; // fileCategory: 'CV' or 'CoverLetter'
 
     if (!fileName || !fileType) {
       return {
@@ -44,9 +44,27 @@ exports.handler = async (event) => {
       };
     }
 
-    // Generate unique file key
+    // Generate file key with user folder structure: userId/CV_CompanyName_DDMMYYYY_HHMM.ext
     const fileExtension = fileName.split('.').pop();
-    const fileKey = `uploads/${uuidv4()}.${fileExtension}`;
+    const now = new Date();
+    const dateStr = String(now.getDate()).padStart(2, '0') + 
+                    String(now.getMonth() + 1).padStart(2, '0') + 
+                    String(now.getFullYear());
+    const timeStr = String(now.getHours()).padStart(2, '0') + 
+                    String(now.getMinutes()).padStart(2, '0');
+    
+    // Sanitize company name (remove special characters, spaces to underscores)
+    const sanitizedCompany = companyName 
+      ? companyName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50)
+      : 'Unknown';
+    
+    // Determine file prefix (CV or CoverLetter)
+    const filePrefix = fileCategory === 'CoverLetter' ? 'CoverLetter' : 'CV';
+    
+    // Create file key: userId/CV_CompanyName_DDMMYYYY_HHMM.ext
+    const fileKey = userId 
+      ? `${userId}/${filePrefix}_${sanitizedCompany}_${dateStr}_${timeStr}.${fileExtension}`
+      : `uploads/${filePrefix}_${sanitizedCompany}_${dateStr}_${timeStr}_${uuidv4()}.${fileExtension}`;
 
     // Generate presigned URL for PUT operation (upload)
     const presignedUrl = s3.getSignedUrl('putObject', {

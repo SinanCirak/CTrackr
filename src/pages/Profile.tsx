@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HiUser, HiMail, HiPhone, HiLocationMarker, HiLink, HiBriefcase, HiAcademicCap, HiBadgeCheck, HiPlus, HiX, HiSave, HiDocumentText, HiCode, HiDownload } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
+import { getProfile, updateProfile } from '../utils/api';
 import type { UserProfile, WorkExperience, Education, Certification, Project, SkillCategory } from '../types/user';
 import './Profile.css';
 import jsPDF from 'jspdf';
@@ -29,7 +30,6 @@ export default function Profile() {
     languages: [],
   });
 
-  const [newSkill, setNewSkill] = useState('');
   const [editingSkillCategory, setEditingSkillCategory] = useState<SkillCategory | null>(null);
   const [editingExperience, setEditingExperience] = useState<WorkExperience | null>(null);
   const [editingEducation, setEditingEducation] = useState<Education | null>(null);
@@ -37,17 +37,58 @@ export default function Profile() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   useEffect(() => {
-    // Load profile from localStorage or API
-    const savedProfile = localStorage.getItem('userProfile');
-    if (savedProfile) {
-      try {
-        const parsed = JSON.parse(savedProfile);
-        setProfile(parsed);
-      } catch (e) {
-        console.error('Error loading profile:', e);
+    // Load profile from API or localStorage
+    const loadProfile = async () => {
+      // Get userId from user object (Cognito sub or mock userId)
+      const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
+      
+      if (!userId) {
+        // Fallback to localStorage if no user
+        const savedProfile = localStorage.getItem('userProfile');
+        if (savedProfile) {
+          try {
+            const parsed = JSON.parse(savedProfile);
+            setProfile(parsed);
+          } catch (e) {
+            console.error('Error loading profile:', e);
+          }
+        }
+        return;
       }
-    }
-  }, []);
+
+      try {
+        const savedProfile = await getProfile(userId);
+        if (savedProfile) {
+          setProfile(savedProfile);
+        } else {
+          // Try localStorage as fallback
+          const localProfile = localStorage.getItem('userProfile');
+          if (localProfile) {
+            try {
+              const parsed = JSON.parse(localProfile);
+              setProfile(parsed);
+            } catch (e) {
+              console.error('Error loading profile:', e);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error loading profile from API:', err);
+        // Fallback to localStorage
+        const savedProfile = localStorage.getItem('userProfile');
+        if (savedProfile) {
+          try {
+            const parsed = JSON.parse(savedProfile);
+            setProfile(parsed);
+          } catch (e) {
+            console.error('Error loading profile:', e);
+          }
+        }
+      }
+    };
+
+    loadProfile();
+  }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -55,22 +96,6 @@ export default function Profile() {
     setError(null);
   };
 
-  const handleAddSkill = () => {
-    if (newSkill.trim() && !profile.skills?.includes(newSkill.trim())) {
-      setProfile(prev => ({
-        ...prev,
-        skills: [...(prev.skills || []), newSkill.trim()],
-      }));
-      setNewSkill('');
-    }
-  };
-
-  const handleRemoveSkill = (skill: string) => {
-    setProfile(prev => ({
-      ...prev,
-      skills: prev.skills?.filter(s => s !== skill) || [],
-    }));
-  };
 
   const handleAddSkillCategory = () => {
     const newCategory: SkillCategory = {
@@ -236,13 +261,47 @@ export default function Profile() {
   };
 
   const handleSave = async () => {
+    // Get userId from user object (Cognito sub or mock userId)
+    const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
+    
+    if (!userId) {
+      setError('Please sign in to save your profile');
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setSuccess(null);
 
     try {
-      // Save to localStorage (later will be API)
-      localStorage.setItem('userProfile', JSON.stringify(profile));
+      const profileToSave: UserProfile = {
+        id: (profile as UserProfile).id || '',
+        userId: userId,
+        fullName: profile.fullName || '',
+        email: profile.email || '',
+        phone: profile.phone,
+        address: profile.address,
+        linkedinUrl: profile.linkedinUrl,
+        githubUrl: profile.githubUrl,
+        portfolioUrl: profile.portfolioUrl,
+        summary: profile.summary,
+        skills: profile.skills || [],
+        skillCategories: profile.skillCategories || [],
+        experience: profile.experience || [],
+        education: profile.education || [],
+        certifications: profile.certifications || [],
+        projects: profile.projects || [],
+        languages: profile.languages || [],
+        createdAt: (profile as UserProfile).createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const savedProfile = await updateProfile(profileToSave);
+      setProfile(savedProfile);
+      
+      // Also save to localStorage as backup
+      localStorage.setItem('userProfile', JSON.stringify(savedProfile));
+      
       setSuccess('Profile saved successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -355,7 +414,7 @@ export default function Profile() {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         
-        profile.skillCategories.forEach((category, idx) => {
+        profile.skillCategories?.forEach((category, idx) => {
           if (yPos > 250) {
             doc.addPage();
             yPos = margin;
@@ -379,7 +438,7 @@ export default function Profile() {
           yPos += skillsLines.length * 5;
           
           // Add spacing between categories
-          if (idx < profile.skillCategories.length - 1) {
+          if (idx < (profile.skillCategories?.length || 0) - 1) {
             yPos += 3;
           }
         });
@@ -415,7 +474,7 @@ export default function Profile() {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         
-        profile.education.forEach((edu, idx) => {
+        profile.education?.forEach((edu, idx) => {
           if (yPos > 250) {
             doc.addPage();
             yPos = margin;
@@ -426,7 +485,7 @@ export default function Profile() {
           yPos += 5;
           doc.text(institutionText, margin, yPos);
           yPos += 7;
-          if (idx < profile.education.length - 1) {
+          if (idx < (profile.education?.length || 0) - 1) {
             yPos += 2;
           }
         });
@@ -446,7 +505,7 @@ export default function Profile() {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         
-        profile.certifications.forEach((cert, idx) => {
+        profile.certifications?.forEach((cert, idx) => {
           if (yPos > 250) {
             doc.addPage();
             yPos = margin;
@@ -456,7 +515,7 @@ export default function Profile() {
           yPos += 5;
           doc.text(cert.issueDate, margin, yPos);
           yPos += 7;
-          if (idx < profile.certifications.length - 1) {
+          if (idx < (profile.certifications?.length || 0) - 1) {
             yPos += 2;
           }
         });
@@ -476,7 +535,7 @@ export default function Profile() {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         
-        profile.projects.forEach((project, idx) => {
+        profile.projects?.forEach((project, idx) => {
           if (yPos > 250) {
             doc.addPage();
             yPos = margin;
@@ -511,7 +570,7 @@ export default function Profile() {
           }
           
           yPos += 7;
-          if (idx < profile.projects.length - 1) {
+          if (idx < (profile.projects?.length || 0) - 1) {
             yPos += 2;
           }
         });
@@ -531,7 +590,7 @@ export default function Profile() {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         
-        profile.experience.forEach((exp, idx) => {
+        profile.experience?.forEach((exp, idx) => {
           if (yPos > 250) {
             doc.addPage();
             yPos = margin;
@@ -566,7 +625,7 @@ export default function Profile() {
           }
           
           yPos += 7;
-          if (idx < profile.experience.length - 1) {
+          if (idx < (profile.experience?.length || 0) - 1) {
             yPos += 2;
           }
         });

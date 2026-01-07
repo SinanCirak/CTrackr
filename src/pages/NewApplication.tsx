@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiPlusCircle, HiX, HiDocument, HiCloudUpload, HiClipboardCheck, HiInformationCircle, HiSparkles } from 'react-icons/hi';
+import { useAuth } from '../contexts/AuthContext';
 import { createApplication, getUploadUrl, uploadFileToS3 } from '../utils/api';
-import type { CreateApplicationInput, ApplicationStatus } from '../types/application';
+import type { CreateApplicationInput } from '../types/application';
 import type { UserProfile } from '../types/user';
 import './NewApplication.css';
 
@@ -10,6 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.example.c
 
 export default function NewApplication() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadingCv, setUploadingCv] = useState(false);
@@ -236,11 +238,20 @@ export default function NewApplication() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Get userId from user object (Cognito sub or mock userId)
+    const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
+    
+    if (!userId) {
+      setError('Please sign in to create an application');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      await createApplication(formData);
+      await createApplication({ ...formData, userId });
       navigate('/applications');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create application');

@@ -21,7 +21,7 @@ if (!USE_MOCK_AUTH) {
       Cognito: {
         userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || '',
         userPoolClientId: import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID || '',
-        region: import.meta.env.VITE_AWS_REGION || 'us-east-1',
+        region: import.meta.env.VITE_AWS_REGION || 'ca-central-1',
       },
     },
   };

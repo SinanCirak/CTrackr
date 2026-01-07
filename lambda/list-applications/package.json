@@ -4,9 +4,6 @@
   "description": "Lambda function to list all job applications",
   "main": "index.js",
   "dependencies": {
-    "aws-sdk": "^2.1500.0"
+    "aws-sdk": "^2.1693.0"
   }
 }
-
-
-

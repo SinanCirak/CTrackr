@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { HiArrowLeft, HiPencil, HiTrash, HiX, HiCheck, HiLocationMarker, HiCalendar, HiCurrencyDollar, HiLink, HiMail, HiUser, HiDocument, HiDownload, HiClock, HiVideoCamera } from 'react-icons/hi';
 import { getApplication, updateApplication, deleteApplication } from '../utils/api';
 import type { JobApplication, UpdateApplicationInput } from '../types/application';

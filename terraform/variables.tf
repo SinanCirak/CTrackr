@@ -1,7 +1,7 @@
 variable "aws_region" {
-  description = "AWS region for resources"
+  description = "AWS region for resources (CloudFront certificates will be created in us-east-1 automatically)"
   type        = string
-  default     = "us-east-1"
+  default     = "ca-central-1"
 }
 
 variable "project_name" {
@@ -23,7 +23,7 @@ variable "bucket_name" {
 }
 
 variable "domain_name" {
-  description = "Domain name for the website (optional)"
+  description = "Domain name for the website (e.g., ctrackr.cirak.ca)"
   type        = string
   default     = ""
 }

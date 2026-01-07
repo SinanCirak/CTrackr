@@ -38,6 +38,19 @@ terraform.tfvars
 # Build outputs
 *.zip
 lambda/*/node_modules
+lambda/*/*.zip
+
+# AWS and sensitive files
+*.pem
+*.key
+*.p12
+*.pfx
+credentials
+.aws/
+
+# Terraform plan files
+*.tfplan
+tfplan
 
 
 

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { HiPlusCircle, HiLocationMarker, HiCalendar, HiBriefcase, HiClipboardList, HiChartBar, HiFilter, HiChevronDown, HiDocument } from 'react-icons/hi';
+import { HiPlusCircle, HiLocationMarker, HiCalendar, HiBriefcase, HiClipboardList, HiChartBar, HiChevronDown, HiDocument } from 'react-icons/hi';
+import { useAuth } from '../contexts/AuthContext';
 import { listApplications, updateApplication } from '../utils/api';
 import type { JobApplication, ApplicationStatus } from '../types/application';
 import './Applications.css';
 
 export default function Applications() {
+  const { user } = useAuth();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,7 +17,7 @@ export default function Applications() {
 
   useEffect(() => {
     loadApplications();
-  }, []);
+  }, [user]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -34,7 +36,9 @@ export default function Applications() {
   async function loadApplications() {
     try {
       setLoading(true);
-      const data = await listApplications();
+      // Get userId from user object (Cognito sub or mock userId)
+      const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
+      const data = await listApplications(userId);
       setApplications(data);
       setError(null);
     } catch (err) {

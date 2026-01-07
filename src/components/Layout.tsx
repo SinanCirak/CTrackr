@@ -50,7 +50,7 @@ export default function Layout({ children }: LayoutProps) {
       <header className="header">
         <div className="container">
           <Link to="/" className="logo">
-            <HiBriefcase className="logo-icon" />
+            <img src="/logo.svg" alt="CTrackr Logo" className="logo-img" />
             <h1>CTrackr</h1>
           </Link>
           <button 

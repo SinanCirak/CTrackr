@@ -1,8 +1,11 @@
-aws_region   = "us-east-1"
+aws_region   = "ca-central-1"
 project_name = "ctrackr"
 environment  = "prod"
 bucket_name  = "ctrackr-website-prod"
-domain_name  = ""
+domain_name  = "ctrackr.cirak.ca"
+
+# Note: CloudFront certificates must be in us-east-1
+# This is handled automatically by the separate provider in main.tf
 
 
 

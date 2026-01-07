@@ -8,6 +8,7 @@ export type ApplicationStatus =
 
 export interface JobApplication {
   id: string;
+  userId?: string; // Optional for backward compatibility
   company: string;
   position: string;
   status: ApplicationStatus;
@@ -33,6 +34,7 @@ export interface JobApplication {
 }
 
 export interface CreateApplicationInput {
+  userId?: string; // Optional for backward compatibility
   company: string;
   position: string;
   status?: ApplicationStatus;
