@@ -90,7 +90,6 @@ CTrackr/
 │   ├── update-profile/         # Update user profile
 │   ├── get-upload-url/         # Generate S3 presigned URLs
 │   └── delete-file/            # Delete files from S3
-│   └── generate-documents/      # (Deprecated) AI document generation
 ├── terraform/                    # Infrastructure as Code
 │   ├── main.tf                 # Main Terraform configuration
 │   ├── variables.tf            # Variable definitions
@@ -395,7 +394,7 @@ VITE_AWS_REGION=ca-central-1
 - **Status Workflow**: Track applications through multiple stages
 - **Interview Scheduling**: Store interview details (date, time, place, link)
 - **File Attachments**: Associate CV and cover letter with each application
-- **Notes & Requirements**: Store job descriptions and requirements for AI generation
+- **Notes & Requirements**: Store job descriptions and requirements
 
 ## 🛠️ Technologies Used
 
