@@ -397,31 +397,45 @@ VITE_AWS_REGION=ca-central-1
 ### Screenshots
 
 #### Home Page
-![Home Page](./screenshots/home.png)
+![Home Page](./screenshots/HomePage.png)
 *Landing page with hero section, feature highlights, and call-to-action buttons*
 
 #### Applications Dashboard
-![Applications Dashboard](./screenshots/applications.png)
-*Applications dashboard with summary statistics, status filters, and application cards*
+![Applications Dashboard - All](./screenshots/Aplications_1.png)
+*Applications dashboard with summary statistics and application cards*
+
+![Applications Dashboard - Filtered](./screenshots/Applications_2.png)
+*Filtered view showing applications by status*
+
+![Applications Dashboard - Filter Tabs](./screenshots/Filter.png)
+*Status filter tabs for easy navigation*
 
 #### New Application Form
-![New Application Form](./screenshots/new-application.png)
-*Comprehensive form for creating new job applications with file upload support*
+![New Application Form - Overview](./screenshots/NewApplication_1.png)
+*Main form fields for company, position, dates, and contact information*
+
+![New Application Form - Job Details](./screenshots/NewApplication_2.png)
+*Job details section with description and requirements fields*
+
+![New Application Form - Notes](./screenshots/NewApplication_3.png)
+*Notes section for additional application information*
+
+![New Application Form - Documents](./screenshots/NewApplication_4.png)
+*File upload section for CV and Cover Letter*
+
+![New Application Form - Documents Uploaded](./screenshots/NewApplication_5.png)
+*Documents section with uploaded files displayed*
 
 #### Application Detail/Edit
-![Application Detail](./screenshots/application-detail.png)
+![Application Edit](./screenshots/Edit.png)
 *Application detail page with status management and editing capabilities*
 
-#### Profile Page
-![Profile Page](./screenshots/profile.png)
-*User profile management with skills, experience, education, and PDF generation*
-
 #### Login Page
-![Login Page](./screenshots/login.png)
+![Login Page](./screenshots/Login.png)
 *Clean login interface with email/password authentication*
 
 #### Create Account
-![Create Account](./screenshots/create-account.png)
+![Create Account](./screenshots/SignUp.png)
 *User registration form with password requirements*
 
 ### Authentication Pages
