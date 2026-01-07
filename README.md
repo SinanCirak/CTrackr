@@ -392,6 +392,84 @@ VITE_AWS_REGION=ca-central-1
 - **Password Policy**: Strong password requirements via Cognito
 - **Email Verification**: Secure email-based verification
 
+## 🖥️ User Interface
+
+### Screenshots
+
+#### Home Page
+![Home Page](./screenshots/home.png)
+*Landing page with hero section, feature highlights, and call-to-action buttons*
+
+#### Applications Dashboard
+![Applications Dashboard](./screenshots/applications.png)
+*Applications dashboard with summary statistics, status filters, and application cards*
+
+#### New Application Form
+![New Application Form](./screenshots/new-application.png)
+*Comprehensive form for creating new job applications with file upload support*
+
+#### Application Detail/Edit
+![Application Detail](./screenshots/application-detail.png)
+*Application detail page with status management and editing capabilities*
+
+#### Profile Page
+![Profile Page](./screenshots/profile.png)
+*User profile management with skills, experience, education, and PDF generation*
+
+#### Login Page
+![Login Page](./screenshots/login.png)
+*Clean login interface with email/password authentication*
+
+#### Create Account
+![Create Account](./screenshots/create-account.png)
+*User registration form with password requirements*
+
+### Authentication Pages
+- **Login Page**: Clean, modern login interface with email/password authentication
+- **Create Account**: User-friendly registration form with password requirements
+- **Email Verification**: Secure account verification via AWS Cognito
+
+### Dashboard & Navigation
+- **Home Page**: 
+  - Hero section with clear call-to-action buttons
+  - Feature highlights (Track Everything, Status Management, Easy Search)
+  - Modern purple gradient design with intuitive navigation
+- **Navigation Bar**: 
+  - Responsive header with logo and main navigation links
+  - User menu dropdown with profile and settings access
+  - Mobile-friendly hamburger menu
+
+### Application Management
+- **Applications Dashboard**:
+  - Summary statistics cards (Total Applications, In Interview, Offers)
+  - Status filter tabs (All, Applied, Interview, Offer, Rejected)
+  - Application cards with company, position, date, location, and document indicators
+  - Interactive status dropdown for quick updates
+- **New Application Form**:
+  - Comprehensive form with company, position, dates, location, salary fields
+  - Job details section for descriptions and requirements
+  - File upload areas for CV and Cover Letter with drag-and-drop support
+  - Real-time file upload progress and management
+- **Application Detail/Edit**:
+  - Modal or dedicated page for editing application details
+  - Status management with dropdown selector
+  - Date pickers for applied, interview, and offer dates
+  - Notes section for additional information
+
+### Profile Management
+- **Profile Page**: 
+  - Comprehensive profile editor with categorized sections
+  - Skills management with categories and descriptions
+  - Work experience, education, certifications, and projects sections
+  - PDF generation for CV/Resume export
+
+### Design System
+- **Color Scheme**: Purple gradient primary colors with white backgrounds
+- **Icons**: Consistent icon library (React Icons) throughout the application
+- **Typography**: Clear hierarchy with bold headings and readable body text
+- **Responsive Design**: Mobile-first approach with adaptive layouts
+- **User Experience**: Intuitive navigation, clear visual feedback, and smooth interactions
+
 ## 🎨 Key Features in Detail
 
 ### File Upload System
