@@ -2,6 +2,17 @@
 
 A comprehensive full-stack application for tracking job applications and managing user profiles. Built with React, TypeScript, AWS Serverless Architecture, and Infrastructure as Code.
 
+## 💡 Why This Project?
+
+I built CTrackr to replace spreadsheets and manual tracking for job applications with a secure, scalable, cloud-native system. It focuses on real requirements like status tracking, profile-driven document management, and integration with AWS services for resilient infrastructure.
+
+This project demonstrates:
+- **Full-stack development** with modern React and TypeScript
+- **Serverless architecture** using AWS Lambda, API Gateway, and DynamoDB
+- **Infrastructure as Code** with Terraform for reproducible deployments
+- **Production-ready features** including authentication, file management, and user data isolation
+- **Best practices** in security, scalability, and maintainability
+
 ## 🚀 Features
 
 ### Job Application Management
@@ -22,6 +33,12 @@ A comprehensive full-stack application for tracking job applications and managin
 - **Projects**: Showcase academic and technical projects with achievements
 - **Languages**: Track language proficiencies
 - **PDF Generation**: Generate professional CV/Resume PDFs from profile data (client-side)
+
+### AI-Assisted Draft Generation (Future Feature)
+- **AWS Bedrock Integration**: AI-assisted CV and cover letter tailoring using Amazon Bedrock
+- **ATS-Optimized Content**: Designs ATS-aware keywords and content structure based on user profile and job requirements
+- **Smart Drafting**: Generates personalized drafts for users to review and finalize
+- **Context-Aware**: Leverages job descriptions and requirements to create targeted documents
 
 ### Authentication & Security
 - **AWS Cognito Integration**: Secure user authentication and authorization
