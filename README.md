@@ -1,6 +1,6 @@
 # CTrackr - Job Application Tracker
 
-A comprehensive full-stack application for tracking job applications, managing user profiles, and generating professional CVs and cover letters. Built with React, TypeScript, AWS Serverless Architecture, and Infrastructure as Code.
+A comprehensive full-stack application for tracking job applications and managing user profiles. Built with React, TypeScript, AWS Serverless Architecture, and Infrastructure as Code.
 
 ## 🚀 Features
 
@@ -21,12 +21,7 @@ A comprehensive full-stack application for tracking job applications, managing u
 - **Certifications**: Store professional certifications
 - **Projects**: Showcase academic and technical projects with achievements
 - **Languages**: Track language proficiencies
-- **PDF Generation**: Generate professional CV/Resume PDFs from profile data
-
-### Document Generation
-- **AI-Powered Generation**: Generate CVs and Cover Letters using job descriptions and requirements
-- **PDF Export**: Download generated documents as PDF files
-- **Customizable Templates**: Professional formatting with proper sections and styling
+- **PDF Generation**: Generate professional CV/Resume PDFs from profile data (client-side)
 
 ### Authentication & Security
 - **AWS Cognito Integration**: Secure user authentication and authorization
@@ -75,8 +70,7 @@ CTrackr/
 │   │   ├── Applications.tsx    # Application list page
 │   │   ├── ApplicationDetail.tsx # Application detail page
 │   │   ├── NewApplication.tsx  # Create application page
-│   │   ├── Profile.tsx         # User profile management
-│   │   └── GenerateDocuments.tsx # Document generation
+│   │   └── Profile.tsx         # User profile management
 │   ├── contexts/                # React contexts
 │   │   └── AuthContext.tsx     # Authentication context
 │   ├── utils/                   # Utility functions
@@ -96,6 +90,7 @@ CTrackr/
 │   ├── update-profile/         # Update user profile
 │   ├── get-upload-url/         # Generate S3 presigned URLs
 │   └── delete-file/            # Delete files from S3
+│   └── generate-documents/      # (Deprecated) AI document generation
 ├── terraform/                    # Infrastructure as Code
 │   ├── main.tf                 # Main Terraform configuration
 │   ├── variables.tf            # Variable definitions
@@ -359,7 +354,7 @@ VITE_AWS_REGION=ca-central-1
   - IAM role policy for:
     - DynamoDB access (applications & user_profiles tables)
     - S3 access (uploads bucket)
-    - Bedrock access (for future AI features)
+    - Bedrock access (for future features)
 - **Lambda Permissions**:
   - API Gateway invoke permissions for all Lambda functions
 
@@ -495,8 +490,7 @@ aws cloudfront create-invalidation --distribution-id YOUR_DISTRIBUTION_ID --path
 - [ ] Update application details
 - [ ] Filter applications by status
 - [ ] Create and update user profile
-- [ ] Generate PDF CV
-- [ ] Generate AI-powered documents
+- [ ] Generate PDF CV from profile
 - [ ] Delete application (should also delete S3 files)
 
 ## 📊 Terraform Outputs
