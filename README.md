@@ -54,6 +54,7 @@ A comprehensive full-stack application for tracking job applications, managing u
 - **DNS**: AWS Route 53
 - **SSL/TLS**: AWS Certificate Manager (ACM)
 - **Email**: AWS SES (Simple Email Service)
+- **Authentication**: AWS Cognito
 
 ### Infrastructure
 - **IaC**: Terraform
@@ -163,8 +164,8 @@ terraform apply
 After deployment, create a `.env` file in the root directory:
 ```bash
 VITE_API_BASE_URL=https://your-api-gateway-url.execute-api.ca-central-1.amazonaws.com
-VITE_COGNITO_USER_POOL_ID=your-user-pool-id
-VITE_COGNITO_USER_POOL_CLIENT_ID=your-client-id
+VITE_COGNITO_USER_POOL_ID=ca-central-1_xxxxx
+VITE_COGNITO_USER_POOL_CLIENT_ID=xxxxx
 VITE_AWS_REGION=ca-central-1
 ```
 
@@ -263,20 +264,111 @@ VITE_AWS_REGION=ca-central-1
 ### Website Bucket (`ctrackr-website-prod`)
 - Static website files (HTML, CSS, JS)
 - Served via CloudFront CDN
+- Origin Access Control (OAC) for secure access
 
 ### Uploads Bucket (`ctrackr-uploads-prod`)
 - User-uploaded files organized by user ID
 - Structure: `{userId}/{fileCategory}_{companyName}_{DDMMYYYY}_{HHMM}.{ext}`
 - Example: `user-123/CV_Google_07012026_1615.pdf`
+- Versioning enabled
+- CORS configured for browser uploads
+
+## ☁️ AWS Services & Resources
+
+### Compute & API
+- **AWS Lambda** (8 functions):
+  - `create-application` - Create new job applications
+  - `get-application` - Retrieve single application
+  - `list-applications` - List applications with user filtering
+  - `update-application` - Update application details
+  - `delete-application` - Delete application and S3 files
+  - `get-profile` - Get user profile
+  - `update-profile` - Update user profile
+  - `get-upload-url` - Generate S3 presigned URLs
+  - `delete-file` - Delete files from S3
+- **AWS API Gateway** (HTTP API):
+  - 9 API routes
+  - CORS enabled
+  - Auto-deploy stage
+  - Lambda integrations
+
+### Database
+- **AWS DynamoDB** (2 tables):
+  - `ctrackr-applications` - Job applications data
+  - `ctrackr-user-profiles` - User profile data
+  - Pay-per-request billing mode
+
+### Storage
+- **AWS S3** (2 buckets):
+  - `ctrackr-website-prod` - Frontend static files
+    - Website configuration
+    - Public access block (CloudFront only)
+    - Bucket policy for CloudFront OAC
+  - `ctrackr-uploads-prod` - User file uploads
+    - CORS configuration
+    - Versioning enabled
+
+### Content Delivery
+- **AWS CloudFront**:
+  - Distribution for website bucket
+  - Origin Access Control (OAC)
+  - Custom domain support
+  - SSL/TLS via ACM
+  - IPv4 and IPv6 support
+
+### Authentication
+- **AWS Cognito**:
+  - User Pool for authentication
+  - User Pool Client for application
+  - User Pool Domain (hosted UI)
+  - Email verification via SES
+  - Password policy configured
+  - Account recovery settings
+
+### Networking & DNS
+- **AWS Route 53**:
+  - Hosted zone lookup
+  - A record for CloudFront
+  - AAAA record for IPv6
+  - CNAME records for certificate validation
+- **AWS Certificate Manager (ACM)**:
+  - SSL/TLS certificate for CloudFront
+  - Certificate validation via Route 53
+  - Region: us-east-1 (required for CloudFront)
+
+### Email
+- **AWS SES (Simple Email Service)**:
+  - Email identity for Cognito
+  - Email verification codes
+  - Account recovery emails
+
+### Security & Access
+- **AWS IAM**:
+  - Lambda execution role
+  - IAM role policy for:
+    - DynamoDB access (applications & user_profiles tables)
+    - S3 access (uploads bucket)
+    - Bedrock access (for future AI features)
+- **Lambda Permissions**:
+  - API Gateway invoke permissions for all Lambda functions
+
+### Infrastructure as Code
+- **Terraform Providers**:
+  - AWS Provider (v5.0+)
+  - Archive Provider (for Lambda packaging)
+- **Terraform Resources**: 71+ resources
+- **Terraform Data Sources**: 10+ data sources
 
 ## 🔐 Security Features
 
 - **AWS Cognito**: User authentication and authorization
 - **IAM Roles**: Least privilege access for Lambda functions
 - **S3 Bucket Policies**: Secure file access via presigned URLs
-- **CORS Configuration**: Proper CORS setup for API Gateway
+- **CORS Configuration**: Proper CORS setup for API Gateway and S3
 - **Origin Access Control**: CloudFront OAC for S3 access
 - **User Data Isolation**: All queries filtered by userId
+- **Password Policy**: Strong password requirements via Cognito
+- **Email Verification**: Secure email-based verification
 
 ## 🎨 Key Features in Detail
 
@@ -285,6 +377,7 @@ VITE_AWS_REGION=ca-central-1
 - **Structured Naming**: Automatic file naming with user ID, category, company, date, and time
 - **Timezone Support**: Local timezone-aware file naming
 - **Automatic Cleanup**: Files deleted when applications are removed
+- **Versioning**: S3 versioning enabled for file recovery
 
 ### Profile Management
 - **Categorized Skills**: Organize skills into categories (e.g., "Frontend", "Backend", "DevOps")
@@ -311,7 +404,7 @@ VITE_AWS_REGION=ca-central-1
 
 ### Backend
 - **AWS Lambda**: Serverless compute (Node.js 20)
-- **AWS API Gateway**: REST API
+- **AWS API Gateway**: REST API (HTTP API)
 - **AWS DynamoDB**: NoSQL database
 - **AWS S3**: File storage
 - **AWS CloudFront**: CDN
@@ -319,10 +412,11 @@ VITE_AWS_REGION=ca-central-1
 - **AWS SES**: Email service
 - **AWS Route 53**: DNS management
 - **AWS ACM**: SSL/TLS certificates
+- **AWS IAM**: Access management
 
 ### Infrastructure
 - **Terraform**: Infrastructure as Code
-- **AWS IAM**: Access management
+- **Archive Provider**: Lambda function packaging
 
 ## 📝 Environment Variables
 
@@ -340,6 +434,8 @@ aws_region = "ca-central-1"
 domain_name = "ctrackr.example.com"
 ses_sender_email = "noreply@example.com"
 project_name = "ctrackr"
+environment = "prod"
+bucket_name = "ctrackr-website-prod"
 ```
 
 ## 🚀 Deployment
@@ -392,18 +488,21 @@ aws cloudfront create-invalidation --distribution-id YOUR_DISTRIBUTION_ID --path
 - [ ] Generate AI-powered documents
 - [ ] Delete application (should also delete S3 files)
 
-## 📊 AWS Resources
+## 📊 Terraform Outputs
 
-### Created Resources
-- **Cognito User Pool**: User authentication
-- **API Gateway**: REST API endpoints
-- **Lambda Functions**: 9 serverless functions
-- **DynamoDB Tables**: 2 tables (applications, user_profiles)
-- **S3 Buckets**: 2 buckets (website, uploads)
-- **CloudFront Distribution**: CDN for website
-- **Route 53 Records**: DNS configuration (if domain provided)
-- **ACM Certificates**: SSL/TLS certificates
-- **IAM Roles & Policies**: Access management
+After deployment, Terraform provides the following outputs:
+
+- `api_gateway_url` - API Gateway endpoint URL
+- `dynamodb_table_name` - Applications table name
+- `dynamodb_user_profiles_table_name` - User profiles table name
+- `s3_bucket_name` - Website bucket name
+- `s3_uploads_bucket_name` - Uploads bucket name
+- `s3_bucket_website_url` - S3 website URL
+- `cloudfront_distribution_url` - CloudFront distribution URL
+- `cloudfront_distribution_id` - CloudFront distribution ID
+- `cognito_user_pool_id` - Cognito User Pool ID
+- `cognito_user_pool_client_id` - Cognito User Pool Client ID
+- `cognito_user_pool_domain` - Cognito User Pool Domain
 
 ## 🤝 Contributing
 
