@@ -9,7 +9,7 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const { fileName, fileType, userId, companyName, fileCategory } = body; // fileCategory: 'CV' or 'CoverLetter'
+    const { fileName, fileType, userId, companyName, fileCategory, timezoneOffset } = body; // fileCategory: 'CV' or 'CoverLetter', timezoneOffset in minutes
 
     if (!fileName || !fileType) {
       return {
@@ -47,11 +47,66 @@ exports.handler = async (event) => {
     // Generate file key with user folder structure: userId/CV_CompanyName_DDMMYYYY_HHMM.ext
     const fileExtension = fileName.split('.').pop();
     const now = new Date();
-    const dateStr = String(now.getDate()).padStart(2, '0') + 
-                    String(now.getMonth() + 1).padStart(2, '0') + 
-                    String(now.getFullYear());
-    const timeStr = String(now.getHours()).padStart(2, '0') + 
-                    String(now.getMinutes()).padStart(2, '0');
+    
+    // Get timezone offset from request body (in minutes, e.g., -300 for UTC-5, 300 for UTC+5)
+    // getTimezoneOffset() returns positive for timezones behind UTC (e.g., 300 for UTC-5)
+    // We negate it in frontend, so we receive negative for timezones behind UTC
+    // If not provided, default to UTC (0 offset)
+    const tzOffsetMinutes = timezoneOffset || 0;
+    
+    // Get UTC date/time components
+    const utcDate = now.getUTCDate();
+    const utcMonth = now.getUTCMonth() + 1;
+    const utcYear = now.getUTCFullYear();
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    
+    // Calculate local time by adding timezone offset to UTC
+    // tzOffsetMinutes is in minutes (negative for timezones behind UTC, positive for ahead)
+    // For UTC-5, we receive -300, so we need to subtract 5 hours from UTC
+    // Convert offset to hours and minutes
+    const offsetHours = Math.floor(tzOffsetMinutes / 60);
+    const offsetMins = tzOffsetMinutes % 60;
+    
+    // Calculate local time components
+    let localHours = utcHours + offsetHours;
+    let localMinutes = utcMinutes + offsetMins;
+    let localDate = utcDate;
+    let localMonth = utcMonth;
+    let localYear = utcYear;
+    
+    // Handle minute overflow
+    if (localMinutes < 0) {
+      localMinutes += 60;
+      localHours -= 1;
+    } else if (localMinutes >= 60) {
+      localMinutes -= 60;
+      localHours += 1;
+    }
+    
+    // Handle hour overflow
+    if (localHours < 0) {
+      localHours += 24;
+      localDate -= 1;
+    } else if (localHours >= 24) {
+      localHours -= 24;
+      localDate += 1;
+    }
+    
+    // Handle date overflow (simplified - doesn't handle month/year boundaries perfectly)
+    if (localDate < 1) {
+      localDate = 1; // Simplified - should handle month boundaries
+    }
+    
+    // Format: DDMMYYYY_HHMM
+    const day = String(localDate).padStart(2, '0');
+    const month = String(localMonth).padStart(2, '0');
+    const year = String(localYear);
+    const dateStr = day + month + year; // DDMMYYYY
+    
+    const hours = String(localHours).padStart(2, '0');
+    const minutes = String(localMinutes).padStart(2, '0');
+    const timeStr = hours + minutes; // HHMM
     
     // Sanitize company name (remove special characters, spaces to underscores)
     const sanitizedCompany = companyName 

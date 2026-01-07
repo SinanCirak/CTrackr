@@ -276,17 +276,81 @@ export interface UploadUrlResponse {
   fileKey: string;
 }
 
-export async function getUploadUrl(fileName: string, fileType: string): Promise<UploadUrlResponse> {
+export async function deleteFile(fileKey: string): Promise<void> {
+  console.log('deleteFile called with fileKey:', fileKey);
+  console.log('API_BASE_URL:', API_BASE_URL);
+  
+  if (USE_MOCK_DATA) {
+    console.log('Using mock data, skipping actual deletion');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return;
+  }
+
+  const url = `${API_BASE_URL}/file`;
+  console.log('Calling DELETE:', url);
+  console.log('Request body:', JSON.stringify({ fileKey }));
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ fileKey }),
+  });
+
+  console.log('Response status:', response.status);
+  console.log('Response ok:', response.ok);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error response:', errorText);
+    throw new Error(`Failed to delete file: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  console.log('Delete file result:', result);
+}
+
+export async function getUploadUrl(
+  fileName: string, 
+  fileType: string, 
+  userId?: string, 
+  companyName?: string, 
+  fileCategory?: 'CV' | 'CoverLetter'
+): Promise<UploadUrlResponse> {
+  // Get timezone offset in minutes (e.g., -300 for UTC-5)
+  // getTimezoneOffset() returns the offset from UTC to local time in minutes
+  // For UTC-5, it returns 300 (positive because local time is behind UTC)
+  // We need to negate it to get the offset from local to UTC
+  const timezoneOffset = new Date().getTimezoneOffset();
+  
   const response = await fetch(`${API_BASE_URL}/upload-url`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ fileName, fileType }),
+    body: JSON.stringify({ 
+      fileName, 
+      fileType, 
+      userId,
+      companyName, 
+      fileCategory,
+      timezoneOffset: -timezoneOffset // Negate: UTC-5 returns 300, we need -300
+    }),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to get upload URL: ${response.statusText}`);
+    const errorText = await response.text();
+    let errorMessage = `Failed to get upload URL: ${response.statusText}`;
+    try {
+      const errorData = JSON.parse(errorText);
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch (e) {
+      if (errorText) {
+        errorMessage = errorText;
+      }
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();

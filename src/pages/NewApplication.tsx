@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiPlusCircle, HiX, HiDocument, HiCloudUpload, HiClipboardCheck, HiInformationCircle, HiSparkles } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
-import { createApplication, getUploadUrl, uploadFileToS3 } from '../utils/api';
+import { createApplication, getUploadUrl, uploadFileToS3, deleteFile } from '../utils/api';
 import type { CreateApplicationInput } from '../types/application';
 import type { UserProfile } from '../types/user';
 import './NewApplication.css';
@@ -20,6 +20,8 @@ export default function NewApplication() {
   const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
+  const cvFileInputRef = useRef<HTMLInputElement>(null);
+  const coverLetterFileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<CreateApplicationInput>({
     company: '',
     position: '',
@@ -119,17 +121,34 @@ export default function NewApplication() {
       // Generate file name with company name and date
       const newFileName = generateFileName(file.name, type, formData.company);
 
-      // Get presigned URL
-      const { uploadUrl, fileUrl } = await getUploadUrl(newFileName, file.type);
+      // Get userId from user object (Cognito sub or mock userId)
+      const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
+      
+      // Get presigned URL with userId, companyName, and fileCategory
+      const { uploadUrl, fileUrl, fileKey } = await getUploadUrl(
+        newFileName, 
+        file.type, 
+        userId, 
+        formData.company, 
+        type === 'cv' ? 'CV' : 'CoverLetter'
+      );
 
       // Upload file to S3
       await uploadFileToS3(uploadUrl, file);
 
-      // Update form data with file URL
+      // Update form data with file URL and fileKey
       if (type === 'cv') {
-        setFormData(prev => ({ ...prev, cvUrl: fileUrl }));
+        setFormData(prev => ({ 
+          ...prev, 
+          cvUrl: fileUrl,
+          cvFileKey: fileKey 
+        }));
       } else {
-        setFormData(prev => ({ ...prev, coverLetterUrl: fileUrl }));
+        setFormData(prev => ({ 
+          ...prev, 
+          coverLetterUrl: fileUrl,
+          coverLetterFileKey: fileKey 
+        }));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload file');
@@ -442,6 +461,7 @@ export default function NewApplication() {
               </label>
               <div className="file-upload-wrapper">
                 <input
+                  ref={cvFileInputRef}
                   type="file"
                   id="cv"
                   accept=".pdf,.doc,.docx"
@@ -467,9 +487,56 @@ export default function NewApplication() {
                     <span className="uploaded-file-name">{cvFile.name}</span>
                     <button
                       type="button"
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, cvUrl: undefined }));
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Delete CV button clicked');
+                        console.log('formData.cvFileKey:', formData.cvFileKey);
+                        console.log('formData.cvUrl:', formData.cvUrl);
+                        try {
+                          // Delete file from S3 if fileKey exists
+                          let fileKeyToDelete = formData.cvFileKey;
+                          
+                          // If no fileKey but URL exists, try to extract key from URL
+                          if (!fileKeyToDelete && formData.cvUrl) {
+                            console.log('No cvFileKey found, trying to extract from URL');
+                            // Try to extract key from URL (pattern: userId/CV_CompanyName_DDMMYYYY_HHMM.ext)
+                            const urlMatch = formData.cvUrl.match(/([a-zA-Z0-9_-]+\/(?:CV|CoverLetter)_[^\/\?]+\.(pdf|doc|docx))(?:\?|$)/);
+                            if (urlMatch) {
+                              fileKeyToDelete = urlMatch[1];
+                              console.log('Extracted fileKey from URL:', fileKeyToDelete);
+                            } else {
+                              console.warn('Could not extract fileKey from URL:', formData.cvUrl);
+                            }
+                          }
+                          
+                          if (fileKeyToDelete) {
+                            console.log('Deleting file from S3 with key:', fileKeyToDelete);
+                            await deleteFile(fileKeyToDelete);
+                            console.log('File deleted successfully from S3');
+                          } else {
+                            console.warn('No fileKey found, skipping S3 deletion');
+                          }
+                        } catch (err) {
+                          console.error('Error deleting file from S3:', err);
+                          // Continue with state cleanup even if S3 deletion fails
+                        }
+                        // Clear state
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          cvUrl: undefined,
+                          cvFileKey: undefined 
+                        }));
                         setCvFile(null);
+                        // Clear file input value to allow re-upload
+                        if (cvFileInputRef.current) {
+                          cvFileInputRef.current.value = '';
+                        }
+                        console.log('State cleared');
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                       }}
                       className="remove-file-btn"
                       aria-label="Remove file"
@@ -506,6 +573,7 @@ export default function NewApplication() {
               </label>
               <div className="file-upload-wrapper">
                 <input
+                  ref={coverLetterFileInputRef}
                   type="file"
                   id="coverLetter"
                   accept=".pdf,.doc,.docx"
@@ -531,9 +599,56 @@ export default function NewApplication() {
                     <span className="uploaded-file-name">{coverLetterFile.name}</span>
                     <button
                       type="button"
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, coverLetterUrl: undefined }));
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Delete Cover Letter button clicked');
+                        console.log('formData.coverLetterFileKey:', formData.coverLetterFileKey);
+                        console.log('formData.coverLetterUrl:', formData.coverLetterUrl);
+                        try {
+                          // Delete file from S3 if fileKey exists
+                          let fileKeyToDelete = formData.coverLetterFileKey;
+                          
+                          // If no fileKey but URL exists, try to extract key from URL
+                          if (!fileKeyToDelete && formData.coverLetterUrl) {
+                            console.log('No coverLetterFileKey found, trying to extract from URL');
+                            // Try to extract key from URL (pattern: userId/CV_CompanyName_DDMMYYYY_HHMM.ext)
+                            const urlMatch = formData.coverLetterUrl.match(/([a-zA-Z0-9_-]+\/(?:CV|CoverLetter)_[^\/\?]+\.(pdf|doc|docx))(?:\?|$)/);
+                            if (urlMatch) {
+                              fileKeyToDelete = urlMatch[1];
+                              console.log('Extracted fileKey from URL:', fileKeyToDelete);
+                            } else {
+                              console.warn('Could not extract fileKey from URL:', formData.coverLetterUrl);
+                            }
+                          }
+                          
+                          if (fileKeyToDelete) {
+                            console.log('Deleting file from S3 with key:', fileKeyToDelete);
+                            await deleteFile(fileKeyToDelete);
+                            console.log('File deleted successfully from S3');
+                          } else {
+                            console.warn('No fileKey found, skipping S3 deletion');
+                          }
+                        } catch (err) {
+                          console.error('Error deleting file from S3:', err);
+                          // Continue with state cleanup even if S3 deletion fails
+                        }
+                        // Clear state
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          coverLetterUrl: undefined,
+                          coverLetterFileKey: undefined 
+                        }));
                         setCoverLetterFile(null);
+                        // Clear file input value to allow re-upload
+                        if (coverLetterFileInputRef.current) {
+                          coverLetterFileInputRef.current.value = '';
+                        }
+                        console.log('State cleared');
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                       }}
                       className="remove-file-btn"
                       aria-label="Remove file"

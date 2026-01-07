@@ -26,7 +26,9 @@ export interface JobApplication {
   contactEmail?: string;
   contactName?: string;
   cvUrl?: string;
+  cvFileKey?: string;
   coverLetterUrl?: string;
+  coverLetterFileKey?: string;
   jobDescription?: string;
   requirements?: string;
   createdAt: string;
@@ -52,7 +54,9 @@ export interface CreateApplicationInput {
   contactEmail?: string;
   contactName?: string;
   cvUrl?: string;
+  cvFileKey?: string;
   coverLetterUrl?: string;
+  coverLetterFileKey?: string;
   jobDescription?: string;
   requirements?: string;
 }
@@ -75,7 +79,9 @@ export interface UpdateApplicationInput {
   contactEmail?: string;
   contactName?: string;
   cvUrl?: string;
+  cvFileKey?: string;
   coverLetterUrl?: string;
+  coverLetterFileKey?: string;
   jobDescription?: string;
   requirements?: string;
 }

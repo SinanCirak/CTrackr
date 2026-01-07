@@ -248,6 +248,12 @@ data "archive_file" "update_profile" {
   output_path = "${path.module}/../lambda/update-profile.zip"
 }
 
+data "archive_file" "delete_file" {
+  type        = "zip"
+  source_dir  = "${path.module}/../lambda/delete-file"
+  output_path = "${path.module}/../lambda/delete-file.zip"
+}
+
 # Lambda Functions
 resource "aws_lambda_function" "create_application" {
   filename         = data.archive_file.create_application.output_path
@@ -345,6 +351,7 @@ resource "aws_lambda_function" "delete_application" {
   environment {
     variables = {
       APPLICATIONS_TABLE = aws_dynamodb_table.applications.name
+      UPLOADS_BUCKET     = aws_s3_bucket.uploads.id
     }
   }
 
@@ -371,6 +378,27 @@ resource "aws_lambda_function" "get_upload_url" {
 
   tags = {
     Name    = "${var.project_name}-get-upload-url"
+    Project = var.project_name
+  }
+}
+
+resource "aws_lambda_function" "delete_file" {
+  filename         = data.archive_file.delete_file.output_path
+  function_name    = "${var.project_name}-delete-file"
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "index.handler"
+  source_code_hash = data.archive_file.delete_file.output_base64sha256
+  runtime          = "nodejs20.x"
+  timeout          = 10
+
+  environment {
+    variables = {
+      UPLOADS_BUCKET = aws_s3_bucket.uploads.id
+    }
+  }
+
+  tags = {
+    Name    = "${var.project_name}-delete-file"
     Project = var.project_name
   }
 }
@@ -478,6 +506,13 @@ resource "aws_apigatewayv2_integration" "get_upload_url" {
   integration_method = "POST"
 }
 
+resource "aws_apigatewayv2_integration" "delete_file" {
+  api_id             = aws_apigatewayv2_api.api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = aws_lambda_function.delete_file.invoke_arn
+  integration_method = "POST"
+}
+
 resource "aws_apigatewayv2_integration" "get_profile" {
   api_id             = aws_apigatewayv2_api.api.id
   integration_type   = "AWS_PROXY"
@@ -527,6 +562,12 @@ resource "aws_apigatewayv2_route" "get_upload_url" {
   api_id    = aws_apigatewayv2_api.api.id
   route_key = "POST /upload-url"
   target    = "integrations/${aws_apigatewayv2_integration.get_upload_url.id}"
+}
+
+resource "aws_apigatewayv2_route" "delete_file" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "DELETE /file"
+  target    = "integrations/${aws_apigatewayv2_integration.delete_file.id}"
 }
 
 resource "aws_apigatewayv2_route" "get_profile" {
@@ -586,6 +627,14 @@ resource "aws_lambda_permission" "get_upload_url" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.get_upload_url.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "delete_file" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.delete_file.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
 }
