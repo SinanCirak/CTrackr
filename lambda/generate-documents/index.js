@@ -105,6 +105,17 @@ exports.handler = async (event) => {
 
 function generateCVPrompt(userProfile, jobApplication) {
   return `You are a professional CV writer. Create a well-formatted, professional CV (Resume) in plain text format that will be converted to PDF.
+Return STRICT plain text with this exact structure and formatting rules:
+- Use ALL-CAPS section headers ending with a colon (e.g., PROFESSIONAL SUMMARY:)
+- Use a blank line between sections
+- For bullet points, use "- " (dash + space) at the start of the line
+- Do not use tables or special characters
+- For entry header lines, ALWAYS use the format: "LEFT SIDE | DATE_RANGE"
+  Examples:
+  "Cloud Platform Engineer (Project-Based) — Self-Employed, Canada | 10/2025 - Present"
+  "Advanced Diploma, Software Development — Mohawk College | May/2024"
+  "AWS Certified Solutions Architect - Associate (SAA-C03) | 2025"
+  "CTrackr — Job Application Tracker (SaaS, Live) | 2025"
 
 User Information:
 - Name: ${userProfile.fullName}
@@ -163,12 +174,12 @@ Target Job Application:
 Instructions:
 1. Create a professional CV tailored to the ${jobApplication.position} position at ${jobApplication.company}
 2. Highlight relevant skills and experience that match the job requirements
-3. Use clear sections: PROFESSIONAL SUMMARY, TECHNICAL SKILLS, EDUCATION, CERTIFICATIONS, ACADEMIC & TECHNICAL PROJECTS, EMPLOYMENT EXPERIENCE
+3. Use clear sections: PROFESSIONAL SUMMARY, EXPERIENCE, PROJECTS, SKILLS, EDUCATION, CERTIFICATIONS, VOLUNTEER EXPERIENCE
 4. Format it in a way that's easy to read and professional
 5. Keep it concise but comprehensive
 6. Use bullet points for achievements and responsibilities
 7. Make sure the CV emphasizes the most relevant experience for this specific role
-8. Organize skills by categories if possible (Programming, Cloud & DevOps, etc.)
+8. Organize skills by categories in "Category:" lines (e.g., "Cloud & Infrastructure:")
 9. Separate technical and non-technical work experience if applicable
 
 Generate the CV now:`;
@@ -176,6 +187,8 @@ Generate the CV now:`;
 
 function generateCoverLetterPrompt(userProfile, jobApplication) {
   return `You are a professional cover letter writer. Create a well-formatted, professional cover letter in plain text format that will be converted to PDF.
+Return ONLY the body paragraphs (no header, no date, no salutation, no closing/signature).
+Use 3-4 paragraphs, separated by a blank line. Do not use bullet points.
 
 User Information:
 - Name: ${userProfile.fullName}
@@ -244,93 +257,158 @@ async function generateCVPDF(userProfile, jobApplication, generatedText) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
     
-    // Header Section
+    // Layout constants
     const headerY = 50;
     const pageWidth = doc.page.width;
     const margin = 50;
+    const contentWidth = pageWidth - (margin * 2);
     
-    // Name (left side, large and bold)
-    doc.fontSize(24)
+    // Header (name left, address/phone right, links centered)
+    const rightColumnWidth = 150;
+    const nameWidth = contentWidth - rightColumnWidth - 20;
+
+    const nameY = headerY;
+    doc.fontSize(16)
        .font('Helvetica-Bold')
-       .text(userProfile.fullName, margin, headerY);
-    
-    // Contact info (right side, top)
-    let contactY = headerY;
-    const contactFontSize = 10;
-    
+       .text(userProfile.fullName, margin, nameY, { align: 'left', width: nameWidth });
+
+    doc.fontSize(9).font('Helvetica');
+    const rightX = pageWidth - margin - rightColumnWidth;
+    let rightY = nameY;
     if (userProfile.address) {
-      doc.fontSize(contactFontSize)
-         .font('Helvetica')
-         .text(userProfile.address, pageWidth - margin - 200, contactY, { width: 200, align: 'right' });
-      contactY += 12;
+      doc.text(userProfile.address, rightX, rightY, { align: 'right', width: rightColumnWidth });
+      rightY += 12;
     }
-    
     if (userProfile.phone) {
-      doc.fontSize(contactFontSize)
-         .text(userProfile.phone, pageWidth - margin - 200, contactY, { width: 200, align: 'right' });
-      contactY += 12;
+      doc.text(userProfile.phone, rightX, rightY, { align: 'right', width: rightColumnWidth });
     }
-    
-    // Contact info (below name, centered)
-    const contactCenterY = headerY + 30;
-    const contactItems = [];
-    if (userProfile.email) contactItems.push(userProfile.email);
-    if (userProfile.portfolioUrl) contactItems.push(userProfile.portfolioUrl.replace(/^https?:\/\//, ''));
-    if (userProfile.linkedinUrl) contactItems.push(userProfile.linkedinUrl.replace(/^https?:\/\//, ''));
-    
-    if (contactItems.length > 0) {
-      doc.fontSize(10)
-         .font('Helvetica')
-         .text(contactItems.join(' | '), margin, contactCenterY, { align: 'center', width: pageWidth - (margin * 2) });
+
+    const linkItems = [];
+    if (userProfile.email) linkItems.push(userProfile.email);
+    if (userProfile.portfolioUrl) linkItems.push(userProfile.portfolioUrl.replace(/^https?:\/\//, ''));
+    if (userProfile.linkedinUrl) linkItems.push(userProfile.linkedinUrl.replace(/^https?:\/\//, ''));
+
+    const contactCenterY = nameY + 18;
+    if (linkItems.length > 0) {
+      doc.text(linkItems.join(' | '), margin, contactCenterY, { align: 'center', width: contentWidth });
     }
-    
+
     // Horizontal line
-    doc.moveTo(margin, contactCenterY + 15)
-       .lineTo(pageWidth - margin, contactCenterY + 15)
+    doc.moveTo(margin, contactCenterY + 14)
+       .lineTo(pageWidth - margin, contactCenterY + 14)
        .stroke();
     
     // Parse and format sections from generated text
-    let currentY = contactCenterY + 30;
-    
-    // Split text into sections by uppercase headers
-    const sections = generatedText.split(/\n(?=[A-Z][A-Z\s&]+:)/);
-    
-    sections.forEach(section => {
-      if (section.trim()) {
-        const lines = section.split('\n');
-        const sectionTitle = lines[0].trim();
-        const sectionContent = lines.slice(1).join('\n').trim();
-        
-        // Check if we need a new page
-        if (currentY > doc.page.height - 100) {
-          doc.addPage();
-          currentY = 50;
+    const headerRegex = /^[A-Z][A-Z\s&/]+:$/;
+    const lines = generatedText.split('\n').map(line => line.trimEnd());
+    const sections = [];
+    let currentSection = null;
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        if (currentSection) {
+          currentSection.content.push('');
         }
-        
-        // Section title (bold, uppercase)
-        doc.fontSize(12)
-           .font('Helvetica-Bold')
-           .text(sectionTitle.toUpperCase(), margin, currentY);
-        
-        currentY += 15;
-        
-        // Section content
-        doc.fontSize(10)
-           .font('Helvetica')
-           .text(sectionContent, margin, currentY, {
-             width: pageWidth - (margin * 2),
-             align: 'left',
-             lineGap: 4
-           });
-        
-        // Calculate height used
-        const textHeight = doc.heightOfString(sectionContent, {
-          width: pageWidth - (margin * 2),
-          lineGap: 4
-        });
-        
-        currentY += textHeight + 20;
+        return;
       }
+      if (headerRegex.test(trimmed)) {
+        if (currentSection) sections.push(currentSection);
+        currentSection = { title: trimmed.replace(/:$/, ''), content: [] };
+        return;
+      }
+      if (!currentSection) {
+        currentSection = { title: 'SUMMARY', content: [] };
+      }
+      currentSection.content.push(trimmed);
+    });
+    if (currentSection) sections.push(currentSection);
+
+    const ensureSpace = (heightNeeded) => {
+      const bottomLimit = doc.page.height - margin;
+      if (doc.y + heightNeeded > bottomLimit) {
+        doc.addPage();
+        doc.y = margin;
+      }
+    };
+
+    const renderEntryHeader = (line) => {
+      const parts = line.split(' | ');
+      if (parts.length < 2) return false;
+      const right = parts.pop().trim();
+      const left = parts.join(' | ').trim();
+      const leftWidth = contentWidth - 120;
+      const rightWidth = 120;
+
+      const leftHeight = doc.heightOfString(left, { width: leftWidth });
+      const rightHeight = doc.heightOfString(right, { width: rightWidth });
+      const rowHeight = Math.max(leftHeight, rightHeight);
+      ensureSpace(rowHeight + 4);
+
+      const startY = doc.y;
+      doc.font('Helvetica-Bold')
+         .fontSize(10)
+         .text(left, margin, startY, { width: leftWidth, align: 'left' });
+
+      doc.font('Helvetica')
+         .fontSize(9)
+         .text(right, margin + leftWidth, startY, { width: rightWidth, align: 'right' });
+
+      doc.y = startY + rowHeight + 2;
+      return true;
+    };
+
+    const renderSubheading = (line) => {
+      if (!line.endsWith(':') || line.startsWith('- ')) return false;
+      const label = line.replace(/:$/, '');
+      const labelHeight = doc.heightOfString(label, { width: contentWidth });
+      ensureSpace(labelHeight + 4);
+      doc.font('Helvetica-Bold').fontSize(10).text(label, margin, doc.y);
+      doc.moveDown(0.2);
+      return true;
+    };
+
+    doc.y = contactCenterY + 22;
+    doc.font('Helvetica').fontSize(10);
+
+    sections.forEach(section => {
+      const titleHeight = doc.heightOfString(section.title, { width: contentWidth });
+      ensureSpace(titleHeight + 12);
+
+      doc.font('Helvetica-Bold')
+         .fontSize(10)
+         .text(section.title, margin, doc.y);
+
+      doc.moveDown(0.4);
+      doc.font('Helvetica').fontSize(10);
+
+      section.content.forEach(line => {
+        if (!line) {
+          doc.moveDown(0.4);
+          return;
+        }
+
+        if (renderEntryHeader(line)) {
+          return;
+        }
+
+        if (renderSubheading(line)) {
+          return;
+        }
+
+        const isBullet = line.startsWith('- ');
+        const textHeight = doc.heightOfString(line, { width: contentWidth, lineGap: 3 });
+        ensureSpace(textHeight + 4);
+
+        doc.text(line, margin, doc.y, {
+          width: contentWidth,
+          align: 'left',
+          lineGap: 3,
+          indent: isBullet ? 12 : 0
+        });
+      });
+
+      doc.moveDown(0.8);
     });
     
     // Add page numbers

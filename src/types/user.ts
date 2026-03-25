@@ -19,6 +19,7 @@ export interface UserProfile {
   skills: string[]; // Legacy: flat array of skills (for backward compatibility)
   skillCategories: SkillCategory[]; // New: categorized skills
   experience: WorkExperience[];
+  volunteerExperience: VolunteerExperience[];
   education: Education[];
   certifications: Certification[];
   projects: Project[];
@@ -30,6 +31,7 @@ export interface UserProfile {
 export interface WorkExperience {
   id: string;
   company: string;
+  location?: string;
   position: string;
   startDate: string;
   endDate?: string;
@@ -38,9 +40,21 @@ export interface WorkExperience {
   achievements: string[];
 }
 
+export interface VolunteerExperience {
+  id: string;
+  organization: string;
+  location?: string;
+  role: string;
+  startDate: string;
+  endDate?: string;
+  current: boolean;
+  highlights: string[];
+}
+
 export interface Education {
   id: string;
   institution: string;
+  location?: string;
   degree: string;
   field: string;
   startDate: string;
@@ -53,6 +67,7 @@ export interface Certification {
   id: string;
   name: string; // Full certification name, e.g., "AWS Certified Solutions Architect - Associate"
   code?: string; // Optional code, e.g., "SAA-C03"
+  issuer?: string; // Optional issuing organization
   issueDate: string; // Format: "Month, Year" e.g., "November, 2025"
 }
 
@@ -84,6 +99,7 @@ export interface CreateUserProfileInput {
   skills?: string[]; // Legacy support
   skillCategories?: SkillCategory[];
   experience?: WorkExperience[];
+  volunteerExperience?: VolunteerExperience[];
   education?: Education[];
   certifications?: Certification[];
   projects?: Project[];
@@ -102,6 +118,7 @@ export interface UpdateUserProfileInput {
   skills?: string[]; // Legacy support
   skillCategories?: SkillCategory[];
   experience?: WorkExperience[];
+  volunteerExperience?: VolunteerExperience[];
   education?: Education[];
   certifications?: Certification[];
   projects?: Project[];
