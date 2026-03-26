@@ -24,8 +24,22 @@ export interface UserProfile {
   certifications: Certification[];
   projects: Project[];
   languages: Language[];
+  parsedProfile?: ParsedProfile;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ParsedProfile {
+  summary: string;
+  skillsText: string;
+  experienceText: string;
+  projectsText: string;
+  educationText: string;
+  certificationsText: string;
+  languagesText: string;
+  volunteerText: string;
+  keywords: string[];
+  parsedAt: string;
 }
 
 export interface WorkExperience {
