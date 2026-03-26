@@ -525,9 +525,10 @@ Instructions:
 9. Separate technical and non-technical work experience if applicable
 10. Use ONLY the provided profile data. Do NOT invent details, employers, dates, or achievements.
 11. Prefer job keywords from the Job Description/Requirements when selecting and ordering bullets.
-12. If the role focus is Software Development, do NOT overemphasize infrastructure. Prioritize software development skills and projects.
-13. Choose the most relevant projects for the role; do not default to cloud projects if others match better.
-14. PROFESSIONAL SUMMARY must be 4-5 sentences max, written as a strong hook and strictly relevant to the target role. Keep it professional, specific, and outcome-oriented.
+12. Choose the most relevant projects for the role; do not default to unrelated projects.
+13. Avoid generic phrases (e.g., "passionate", "hard-working", "team player", "strong background").
+14. MUST include at least two of the top keywords from the Keyword Analysis in PROFESSIONAL SUMMARY and/or EXPERIENCE bullets.
+15. PROFESSIONAL SUMMARY must be 4-5 sentences max, written as a strong hook and strictly relevant to the target role. Keep it professional, specific, and outcome-oriented.
 
 Generate the CV now:`;
 }
