@@ -334,46 +334,53 @@ exports.handler = async (event) => {
 };
 
 function generateCVPrompt(userProfile, jobApplication) {
+  const parsed = userProfile.parsedProfile || {};
   const jobTextSource = [
     jobApplication.position,
     jobApplication.jobDescription,
     jobApplication.requirements,
     jobApplication.notes
   ].filter(Boolean).join(' ');
-  const keywords = extractKeywords(jobTextSource, 12);
+  const jobKeywords = extractKeywords(jobTextSource, 12);
+  const keywords = Array.from(new Set([...(parsed.keywords || []), ...jobKeywords])).slice(0, 20);
   const roleFocus = getRoleFocus(jobApplication.position, keywords);
 
-  const summary = limitText(userProfile.summary, MAX_SUMMARY_CHARS);
-  const experience = limitList(
-    sortByRelevance(
-      userProfile.experience || [],
-      keywords,
-      exp => `${exp.position} ${exp.company} ${exp.description} ${(exp.achievements || []).join(' ')}`,
-      exp => toDateValue(exp.startDate)
-    ),
-    MAX_ITEMS.experience
-  );
-  const education = limitList(userProfile.education, MAX_ITEMS.education);
-  const certifications = limitList(userProfile.certifications, MAX_ITEMS.certifications);
-  const projects = limitList(
-    sortByRelevance(
-      userProfile.projects || [],
-      keywords,
-      proj => `${proj.name} ${proj.description} ${(proj.technologies || []).join(' ')} ${(proj.achievements || []).join(' ')}`,
-      proj => toDateValue(proj.year)
-    ),
-    MAX_ITEMS.projects
-  );
-  const languages = limitList(userProfile.languages, MAX_ITEMS.languages);
+  const summary = parsed.summary || limitText(userProfile.summary, MAX_SUMMARY_CHARS);
+  const useParsed = Boolean(parsed.summary || parsed.skillsText || parsed.experienceText);
+  const experience = useParsed
+    ? null
+    : limitList(
+        sortByRelevance(
+          userProfile.experience || [],
+          keywords,
+          exp => `${exp.position} ${exp.company} ${exp.description} ${(exp.achievements || []).join(' ')}`,
+          exp => toDateValue(exp.startDate)
+        ),
+        MAX_ITEMS.experience
+      );
+  const education = useParsed ? null : limitList(userProfile.education, MAX_ITEMS.education);
+  const certifications = useParsed ? null : limitList(userProfile.certifications, MAX_ITEMS.certifications);
+  const projects = useParsed
+    ? null
+    : limitList(
+        sortByRelevance(
+          userProfile.projects || [],
+          keywords,
+          proj => `${proj.name} ${proj.description} ${(proj.technologies || []).join(' ')} ${(proj.achievements || []).join(' ')}`,
+          proj => toDateValue(proj.year)
+        ),
+        MAX_ITEMS.projects
+      );
+  const languages = useParsed ? null : limitList(userProfile.languages, MAX_ITEMS.languages);
   const jobDescription = limitText(jobApplication.jobDescription || jobApplication.notes, MAX_JOB_TEXT_CHARS);
   const requirements = limitText(jobApplication.requirements, MAX_REQUIREMENTS_CHARS);
-  const skillCategories = limitList(userProfile.skillCategories, 8);
-  const skillsText = skillCategories.length
+  const skillCategories = useParsed ? [] : limitList(userProfile.skillCategories, 8);
+  const skillsText = parsed.skillsText || (skillCategories.length
     ? skillCategories.map(category => {
         const items = (category.skills || []).join(', ');
         return `${category.category}: ${items}${category.description ? ` — ${category.description}` : ''}`;
       }).join('\n')
-    : (userProfile.skills?.join(', ') || 'Not provided');
+    : (userProfile.skills?.join(', ') || 'Not provided'));
 
   return `You are a professional CV writer. Create a well-formatted, professional CV (Resume) in plain text format that will be converted to PDF.
 Return STRICT plain text with this exact structure and formatting rules:
@@ -406,37 +413,47 @@ Skill Categories (use these when building the SKILLS section):
 ${skillsText}
 
 Work Experience:
-${experience.map(exp => `
+${useParsed
+  ? (parsed.experienceText || 'Not provided')
+  : (experience.map(exp => `
 - ${exp.position} at ${exp.company}
   Period: ${exp.startDate} - ${exp.endDate || 'Present'}
   Description: ${limitText(exp.description, 400)}
   Achievements: ${limitList(exp.achievements, MAX_ITEMS.achievements).join(', ') || 'N/A'}
-`).join('\n') || 'Not provided'}
+`).join('\n') || 'Not provided')}
 
 Education:
-${education.map(edu => `
+${useParsed
+  ? (parsed.educationText || 'Not provided')
+  : (education.map(edu => `
 - ${edu.degree} in ${edu.field}
   Institution: ${edu.institution}
   Period: ${edu.startDate} - ${edu.endDate || 'Present'}
   GPA: ${edu.gpa || 'N/A'}
-`).join('\n') || 'Not provided'}
+`).join('\n') || 'Not provided')}
 
 Certifications:
-${certifications.map(cert => `
+${useParsed
+  ? (parsed.certificationsText || 'Not provided')
+  : (certifications.map(cert => `
 - ${cert.name}${cert.code ? ` (${cert.code})` : ''} - ${cert.issueDate}
-`).join('\n') || 'Not provided'}
+`).join('\n') || 'Not provided')}
 
 Projects:
-${projects.map(proj => `
+${useParsed
+  ? (parsed.projectsText || 'Not provided')
+  : (projects.map(proj => `
 - ${proj.name}${proj.year ? ` (${proj.year})` : ''} - ${limitText(proj.description, 300)}
   Technologies: ${proj.technologies?.join(', ') || 'N/A'}
   Achievements: ${limitList(proj.achievements, MAX_ITEMS.achievements).join(', ') || 'N/A'}
-`).join('\n') || 'Not provided'}
+`).join('\n') || 'Not provided')}
 
 Languages:
-${languages.map(lang => `
+${useParsed
+  ? (parsed.languagesText || 'Not provided')
+  : (languages.map(lang => `
 - ${lang.language}: ${lang.proficiency}
-`).join('\n') || 'Not provided'}
+`).join('\n') || 'Not provided')}
 
 Target Job Application:
 - Company: ${jobApplication.company}
@@ -467,15 +484,19 @@ Generate the CV now:`;
 }
 
 function generateCoverLetterPrompt(userProfile, jobApplication) {
-  const summary = limitText(userProfile.summary, MAX_SUMMARY_CHARS);
-  const experience = limitList(userProfile.experience, MAX_ITEMS.experience);
+  const parsed = userProfile.parsedProfile || {};
+  const summary = parsed.summary || limitText(userProfile.summary, MAX_SUMMARY_CHARS);
+  const useParsed = Boolean(parsed.summary || parsed.skillsText || parsed.experienceText);
+  const experience = useParsed ? null : limitList(userProfile.experience, MAX_ITEMS.experience);
   const targetPosition = (jobApplication.position || '').toLowerCase();
-  const relevantExperience = experience.filter(exp => {
-    const desc = (exp.description || '').toLowerCase();
-    const position = (exp.position || '').toLowerCase();
-    return desc.includes(targetPosition) || position.includes(targetPosition);
-  });
-  const projects = limitList(userProfile.projects, MAX_ITEMS.projects);
+  const relevantExperience = useParsed
+    ? null
+    : experience.filter(exp => {
+        const desc = (exp.description || '').toLowerCase();
+        const position = (exp.position || '').toLowerCase();
+        return desc.includes(targetPosition) || position.includes(targetPosition);
+      });
+  const projects = useParsed ? null : limitList(userProfile.projects, MAX_ITEMS.projects);
   const jobText = limitText(jobApplication.notes || jobApplication.jobDescription || jobApplication.requirements, MAX_JOB_TEXT_CHARS);
 
   return `You are a professional career assistant.
@@ -504,21 +525,25 @@ Professional Summary:
 ${summary}
 
 Relevant Skills:
-${userProfile.skills?.join(', ') || 'Not provided'}
+${parsed.skillsText || userProfile.skills?.join(', ') || 'Not provided'}
 
 Relevant Experience:
-${relevantExperience.map(exp => `
+${useParsed
+  ? (parsed.experienceText || 'Not provided')
+  : (relevantExperience.map(exp => `
 - ${exp.position} at ${exp.company}: ${exp.description}
 `).join('\n') || experience.slice(0, 2).map(exp => `
 - ${exp.position} at ${exp.company}: ${exp.description}
-`).join('\n') || 'Not provided'}
+`).join('\n') || 'Not provided')}
 
 Projects:
-${projects.map(proj => `
+${useParsed
+  ? (parsed.projectsText || 'Not provided')
+  : (projects.map(proj => `
 - ${proj.name}${proj.year ? ` (${proj.year})` : ''}: ${limitText(proj.description, 300)}
   Technologies: ${proj.technologies?.join(', ') || 'N/A'}
   Achievements: ${limitList(proj.achievements, MAX_ITEMS.achievements).join(', ') || 'N/A'}
-`).join('\n') || 'Not provided'}
+`).join('\n') || 'Not provided')}
 
 Target Job Application:
 - Company: ${jobApplication.company}
