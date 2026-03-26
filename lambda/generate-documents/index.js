@@ -210,6 +210,55 @@ const getNextVersion = (documentType, jobApplication) => {
   return maxVersion + 1;
 };
 
+const firstNonEmptyLine = (text) => {
+  if (!text) return '';
+  const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+  return lines[0] || '';
+};
+
+const buildTopProject = (profile, parsed) => {
+  const parsedTop = firstNonEmptyLine(parsed?.projectsText);
+  if (parsedTop) return parsedTop;
+  const proj = Array.isArray(profile.projects) ? profile.projects[0] : null;
+  if (!proj) return 'Not provided';
+  const parts = [
+    proj.name,
+    proj.year ? `(${proj.year})` : '',
+    proj.description ? limitText(proj.description, 300) : '',
+    Array.isArray(proj.technologies) && proj.technologies.length ? `Tech: ${proj.technologies.join(', ')}` : '',
+    Array.isArray(proj.achievements) && proj.achievements.length ? `Highlights: ${proj.achievements.join(', ')}` : '',
+    proj.url ? `URL: ${proj.url}` : ''
+  ].filter(Boolean);
+  return parts.join(' | ') || 'Not provided';
+};
+
+const buildTopSkills = (profile, parsed) => {
+  if (parsed?.skillsText) return parsed.skillsText;
+  const skillCategories = Array.isArray(profile.skillCategories) ? profile.skillCategories : [];
+  if (skillCategories.length > 0) {
+    return skillCategories.map(category => {
+      const items = (category.skills || []).join(', ');
+      return `${category.category}: ${items}${category.description ? ` — ${category.description}` : ''}`;
+    }).join('\n');
+  }
+  return profile.skills?.join(', ') || 'Not provided';
+};
+
+const buildTopExperience = (profile, parsed) => {
+  const parsedTop = firstNonEmptyLine(parsed?.experienceText);
+  if (parsedTop) return parsedTop;
+  const exp = Array.isArray(profile.experience) ? profile.experience[0] : null;
+  if (!exp) return 'Not provided';
+  const parts = [
+    `${exp.position} at ${exp.company}`,
+    `Period: ${exp.startDate} - ${exp.endDate || 'Present'}`,
+    exp.location ? `Location: ${exp.location}` : '',
+    exp.description ? `Description: ${limitText(exp.description, 400)}` : '',
+    Array.isArray(exp.achievements) && exp.achievements.length ? `Achievements: ${exp.achievements.join(', ')}` : ''
+  ].filter(Boolean);
+  return parts.join(' | ') || 'Not provided';
+};
+
 exports.handler = async (event) => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
@@ -486,90 +535,56 @@ Generate the CV now:`;
 function generateCoverLetterPrompt(userProfile, jobApplication) {
   const parsed = userProfile.parsedProfile || {};
   const summary = parsed.summary || limitText(userProfile.summary, MAX_SUMMARY_CHARS);
-  const useParsed = Boolean(parsed.summary || parsed.skillsText || parsed.experienceText);
-  const experience = useParsed ? null : limitList(userProfile.experience, MAX_ITEMS.experience);
-  const targetPosition = (jobApplication.position || '').toLowerCase();
-  const relevantExperience = useParsed
-    ? null
-    : experience.filter(exp => {
-        const desc = (exp.description || '').toLowerCase();
-        const position = (exp.position || '').toLowerCase();
-        return desc.includes(targetPosition) || position.includes(targetPosition);
-      });
-  const projects = useParsed ? null : limitList(userProfile.projects, MAX_ITEMS.projects);
   const jobText = limitText(jobApplication.notes || jobApplication.jobDescription || jobApplication.requirements, MAX_JOB_TEXT_CHARS);
+  const role = jobApplication.position || 'Software Developer';
+  const topProject = buildTopProject(userProfile, parsed);
+  const topSkills = buildTopSkills(userProfile, parsed);
+  const topExperience = buildTopExperience(userProfile, parsed);
 
-  return `You are a professional career assistant.
-Your task is to generate a high-quality, tailored cover letter based on:
-1) The job description
-2) The candidate’s structured resume data
+  return `You are a professional cover letter writer.
+
+Write a concise, high-quality cover letter.
 
 STRICT RULES:
-- Do NOT invent any experience, tools, or technologies
 - Use ONLY the provided information
-- Prioritize real projects and hands-on experience
-- Focus on software development, APIs, backend, and practical implementation
-- Avoid generic phrases like "passionate", "hard-working", "team player"
-- Keep it concise (250–350 words max)
-- Use a professional but natural tone
-- Return ONLY the body paragraphs (no header, no date, no salutation, no closing/signature)
-- Use 3–4 paragraphs separated by a blank line
+- Do NOT invent any skills or experience
+- MUST include the project mentioned
+- MUST mention backend, API, or application development
+- Avoid generic phrases (e.g. "passionate", "team player")
+- Do NOT use: "strong background", "passionate", "hard-working", "team player"
+- Keep it 180–250 words
+- Use a confident and direct tone
 
-User Information:
-- Name: ${userProfile.fullName}
-- Email: ${userProfile.email || 'Not provided'}
-- Phone: ${userProfile.phone || 'Not provided'}
-- Address: ${userProfile.address || 'Not provided'}
-
-Professional Summary:
-${summary}
-
-Relevant Skills:
-${parsed.skillsText || userProfile.skills?.join(', ') || 'Not provided'}
-
-Relevant Experience:
-${useParsed
-  ? (parsed.experienceText || 'Not provided')
-  : (relevantExperience.map(exp => `
-- ${exp.position} at ${exp.company}: ${exp.description}
-`).join('\n') || experience.slice(0, 2).map(exp => `
-- ${exp.position} at ${exp.company}: ${exp.description}
-`).join('\n') || 'Not provided')}
-
-Projects:
-${useParsed
-  ? (parsed.projectsText || 'Not provided')
-  : (projects.map(proj => `
-- ${proj.name}${proj.year ? ` (${proj.year})` : ''}: ${limitText(proj.description, 300)}
-  Technologies: ${proj.technologies?.join(', ') || 'N/A'}
-  Achievements: ${limitList(proj.achievements, MAX_ITEMS.achievements).join(', ') || 'N/A'}
-`).join('\n') || 'Not provided')}
-
-Target Job Application:
-- Company: ${jobApplication.company}
-- Position: ${jobApplication.position}
-- Applied Date: ${jobApplication.appliedDate}
-- Job Description/Requirements: ${jobText}
-- Contact Name: ${jobApplication.contactName || 'Hiring Manager'}
-- Contact Email: ${jobApplication.contactEmail || 'Not provided'}
-
-Instructions:
 STRUCTURE:
-1. Opening (1–2 sentences)
-   - Mention the role
-   - Brief positioning (Software Developer)
-2. Core paragraph (MOST IMPORTANT)
-   - Highlight 1–2 strongest projects (especially SaaS or real applications)
-   - Explain what was built (tech + purpose)
-   - Mention APIs, backend, or system design if available
-3. Technical alignment
-   - Match candidate skills with job requirements
-   - Mention APIs, databases, debugging, automation if relevant
-4. Closing
-   - Express interest
-   - Keep simple and confident
+1. Opening: mention the role and positioning as a Software Developer
+2. Main: describe the project and what was built (tech + purpose)
+3. Skills: align with backend, APIs, and development work
+4. Closing: short and confident
 
-Generate the cover letter now:`;
+MANDATORY:
+- Include the project in the second paragraph
+- Include at least one sentence about APIs or backend
+- Rewrite the cover letter to be more specific, remove generic phrases, and improve clarity
+
+INPUT:
+Role: ${role}
+
+Project:
+${topProject}
+
+Skills:
+${topSkills}
+
+Experience:
+${topExperience}
+
+Additional Context:
+- Summary: ${summary || 'Not provided'}
+- Company: ${jobApplication.company || 'Not provided'}
+- Job Description: ${jobText}
+
+OUTPUT:
+Return ONLY the final cover letter.`;
 }
 
 function sanitizeFileName(name) {
