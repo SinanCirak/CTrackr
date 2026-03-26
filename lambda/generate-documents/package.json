@@ -6,9 +6,11 @@
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.490.0",
     "@aws-sdk/client-s3": "^3.490.0",
+    "@aws-sdk/s3-request-presigner": "^3.490.0",
     "pdfkit": "^0.14.0"
   }
 }
+
 
 
 

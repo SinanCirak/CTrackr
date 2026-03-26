@@ -19,7 +19,13 @@ variable "environment" {
 variable "bucket_name" {
   description = "S3 bucket name for website hosting"
   type        = string
-  default     = "ctrackr-website"
+  default     = "ctrackr"
+}
+
+variable "bedrock_model_id" {
+  description = "Amazon Bedrock model ID for document generation"
+  type        = string
+  default     = "anthropic.claude-3-sonnet-20240229-v1:0"
 }
 
 variable "domain_name" {

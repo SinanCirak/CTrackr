@@ -1,25 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiPlusCircle, HiX, HiDocument, HiCloudUpload, HiClipboardCheck, HiInformationCircle, HiSparkles } from 'react-icons/hi';
+import { HiPlusCircle, HiX, HiDocument, HiCloudUpload, HiClipboardCheck, HiInformationCircle, HiDownload } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
-import { createApplication, getUploadUrl, uploadFileToS3, deleteFile } from '../utils/api';
-import type { CreateApplicationInput } from '../types/application';
-import type { UserProfile } from '../types/user';
+import { createApplication, getUploadUrl, uploadFileToS3, deleteFile, getProfile } from '../utils/api';
+import type { CreateApplicationInput, DocumentVersion } from '../types/application';
 import './NewApplication.css';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.example.com';
 
 export default function NewApplication() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [uploadingCv, setUploadingCv] = useState(false);
   const [uploadingCoverLetter, setUploadingCoverLetter] = useState(false);
-  const [generatingCV, setGeneratingCV] = useState(false);
-  const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false);
+  const [generating, setGenerating] = useState({ cv: false, coverLetter: false });
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
+  const generatedFileKeysRef = useRef<string[]>([]);
+  const createdRef = useRef(false);
   const cvFileInputRef = useRef<HTMLInputElement>(null);
   const coverLetterFileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<CreateApplicationInput>({
@@ -35,20 +34,65 @@ export default function NewApplication() {
     notes: '',
     jobDescription: '',
     requirements: '',
+    cvVersions: [],
+    coverLetterVersions: [],
   });
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  const buildVersionEntry = (fileUrl: string, fileKey: string | undefined, version: number, source: 'generated' | 'uploaded'): DocumentVersion => ({
+    version,
+    label: `v${version}`,
+    url: fileUrl,
+    fileKey,
+    createdAt: new Date().toISOString(),
+    source,
+  });
+
+  const removeVersion = (versions: DocumentVersion[] | undefined, fileKey?: string, url?: string) => {
+    if (!versions || versions.length === 0) return [];
+    return versions.filter(version => {
+      if (fileKey && version.fileKey === fileKey) return false;
+      if (url && version.url === url) return false;
+      return true;
+    });
+  };
+
+  const deleteGeneratedVersions = async (versions: DocumentVersion[] | undefined) => {
+    if (!versions || versions.length === 0) return;
+    const generatedKeys = versions
+      .filter(version => version.source === 'generated' && version.fileKey)
+      .map(version => version.fileKey as string);
+    if (generatedKeys.length === 0) return;
+    await Promise.all(generatedKeys.map(fileKey => deleteFile(fileKey)));
+  };
+
+  const handleCancel = async () => {
+    try {
+      await deleteGeneratedVersions(formData.cvVersions);
+      await deleteGeneratedVersions(formData.coverLetterVersions);
+      if (generatedFileKeysRef.current.length > 0) {
+        await Promise.all(generatedFileKeysRef.current.map(fileKey => deleteFile(fileKey)));
+      }
+    } catch (err) {
+      console.error('Failed to delete generated files on cancel:', err);
+    } finally {
+      createdRef.current = true;
+      navigate('/applications');
+    }
+  };
 
   useEffect(() => {
-    // Load user profile from localStorage
-    const savedProfile = localStorage.getItem('userProfile');
-    if (savedProfile) {
-      try {
-        const parsed = JSON.parse(savedProfile);
-        setUserProfile(parsed);
-      } catch (e) {
-        console.error('Error loading profile:', e);
-      }
-    }
+    return () => {
+      if (createdRef.current) return;
+      const keys = generatedFileKeysRef.current;
+      if (keys.length === 0) return;
+      keys.forEach(async (fileKey) => {
+        try {
+          await deleteFile(fileKey);
+        } catch (err) {
+          console.error('Failed to cleanup generated file:', err);
+        }
+      });
+    };
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -136,19 +180,31 @@ export default function NewApplication() {
       // Upload file to S3
       await uploadFileToS3(uploadUrl, file);
 
-      // Update form data with file URL and fileKey
+      // Update form data with file URL, fileKey, and version history
       if (type === 'cv') {
-        setFormData(prev => ({ 
-          ...prev, 
-          cvUrl: fileUrl,
-          cvFileKey: fileKey 
-        }));
+        setFormData(prev => {
+          const currentVersions = prev.cvVersions ?? [];
+          const nextVersion = currentVersions.length + 1;
+          const newVersion = buildVersionEntry(fileUrl, fileKey, nextVersion, 'uploaded');
+          return {
+            ...prev,
+            cvUrl: fileUrl,
+            cvFileKey: fileKey,
+            cvVersions: [...currentVersions, newVersion],
+          };
+        });
       } else {
-        setFormData(prev => ({ 
-          ...prev, 
-          coverLetterUrl: fileUrl,
-          coverLetterFileKey: fileKey 
-        }));
+        setFormData(prev => {
+          const currentVersions = prev.coverLetterVersions ?? [];
+          const nextVersion = currentVersions.length + 1;
+          const newVersion = buildVersionEntry(fileUrl, fileKey, nextVersion, 'uploaded');
+          return {
+            ...prev,
+            coverLetterUrl: fileUrl,
+            coverLetterFileKey: fileKey,
+            coverLetterVersions: [...currentVersions, newVersion],
+          };
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload file');
@@ -162,95 +218,6 @@ export default function NewApplication() {
         setUploadingCv(false);
       } else {
         setUploadingCoverLetter(false);
-      }
-    }
-  };
-
-  const handleGenerateDocument = async (documentType: 'cv' | 'coverLetter') => {
-    if (!formData.company || !formData.position) {
-      setError('Please fill in company and position first');
-      return;
-    }
-
-    if (!userProfile || !userProfile.fullName) {
-      setError('Please complete your profile first to generate documents');
-      navigate('/profile');
-      return;
-    }
-
-    if (documentType === 'cv' && formData.cvUrl) {
-      setError('CV already exists. Please remove it first to generate a new one.');
-      return;
-    }
-
-    if (documentType === 'coverLetter' && formData.coverLetterUrl) {
-      setError('Cover Letter already exists. Please remove it first to generate a new one.');
-      return;
-    }
-
-    try {
-      if (documentType === 'cv') {
-        setGeneratingCV(true);
-      } else {
-        setGeneratingCoverLetter(true);
-      }
-      setError(null);
-
-      const tempApp = {
-        id: 'temp',
-        company: formData.company,
-        position: formData.position,
-        status: 'applied', // Always 'applied' for new applications
-        appliedDate: formData.appliedDate,
-        location: formData.location,
-        salary: formData.salary,
-        jobUrl: formData.jobUrl,
-        contactName: formData.contactName,
-        contactEmail: formData.contactEmail,
-        notes: formData.notes,
-        jobDescription: formData.jobDescription,
-        requirements: formData.requirements,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      const response = await fetch(`${API_BASE_URL}/generate-documents`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userProfile,
-          jobApplication: tempApp,
-          documentType,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to generate ${documentType}`);
-      }
-
-      const data = await response.json();
-      
-      // Update form data with the generated document URL
-      if (documentType === 'cv') {
-        setFormData(prev => ({ ...prev, cvUrl: data.fileUrl }));
-        // Create a mock file object for display
-        const mockFile = new File([''], 'generated-cv.pdf', { type: 'application/pdf' });
-        setCvFile(mockFile);
-      } else {
-        setFormData(prev => ({ ...prev, coverLetterUrl: data.fileUrl }));
-        // Create a mock file object for display
-        const mockFile = new File([''], 'generated-cover-letter.pdf', { type: 'application/pdf' });
-        setCoverLetterFile(mockFile);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to generate ${documentType}`);
-    } finally {
-      if (documentType === 'cv') {
-        setGeneratingCV(false);
-      } else {
-        setGeneratingCoverLetter(false);
       }
     }
   };
@@ -271,11 +238,99 @@ export default function NewApplication() {
 
     try {
       await createApplication({ ...formData, userId });
+      createdRef.current = true;
       navigate('/applications');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create application');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateDocument = async (documentType: 'cv' | 'coverLetter') => {
+    if (!formData.company || !formData.position) {
+      setGenerationError('Please enter company and position before generating documents.');
+      return;
+    }
+
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    if (!apiBaseUrl) {
+      setGenerationError('API base URL is not configured.');
+      return;
+    }
+
+    const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
+    if (!userId) {
+      setGenerationError('Please sign in to generate documents.');
+      return;
+    }
+
+    try {
+      setGenerationError(null);
+      setGenerating(prev => ({ ...prev, [documentType]: true }));
+
+      const userProfile = await getProfile(userId);
+      if (!userProfile) {
+        throw new Error('Profile not found. Please save your profile first.');
+      }
+
+      const timezoneOffset = -new Date().getTimezoneOffset();
+      const response = await fetch(`${apiBaseUrl}/generate-documents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userProfile,
+          jobApplication: formData,
+          documentType,
+          timezoneOffset,
+        }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || 'Failed to generate document.');
+      }
+
+      const result = await response.json();
+      if (documentType === 'cv') {
+        setFormData(prev => {
+          const currentVersions = prev.cvVersions ?? [];
+          const fallbackVersion = currentVersions.length + 1;
+          const versionNumber = typeof result.version === 'number' ? result.version : fallbackVersion;
+          const newVersion = buildVersionEntry(result.fileUrl, result.s3Key, versionNumber, 'generated');
+          return {
+            ...prev,
+            cvUrl: result.fileUrl,
+            cvFileKey: result.s3Key,
+            cvVersions: [...currentVersions, newVersion],
+          };
+        });
+        if (result.s3Key) {
+          generatedFileKeysRef.current = [...generatedFileKeysRef.current, result.s3Key];
+        }
+      } else {
+        setFormData(prev => {
+          const currentVersions = prev.coverLetterVersions ?? [];
+          const fallbackVersion = currentVersions.length + 1;
+          const versionNumber = typeof result.version === 'number' ? result.version : fallbackVersion;
+          const newVersion = buildVersionEntry(result.fileUrl, result.s3Key, versionNumber, 'generated');
+          return {
+            ...prev,
+            coverLetterUrl: result.fileUrl,
+            coverLetterFileKey: result.s3Key,
+            coverLetterVersions: [...currentVersions, newVersion],
+          };
+        });
+        if (result.s3Key) {
+          generatedFileKeysRef.current = [...generatedFileKeysRef.current, result.s3Key];
+        }
+      }
+    } catch (err) {
+      setGenerationError(err instanceof Error ? err.message : 'Failed to generate document.');
+    } finally {
+      setGenerating(prev => ({ ...prev, [documentType]: false }));
     }
   };
 
@@ -307,6 +362,7 @@ export default function NewApplication() {
       </div>
       
       {error && <div className="error-message">{error}</div>}
+      {generationError && <div className="error-message">{generationError}</div>}
 
       <form onSubmit={handleSubmit} className="application-form">
         <div className="form-group">
@@ -409,8 +465,8 @@ export default function NewApplication() {
         </div>
 
         <div className="form-section">
-          <h4>Job Details (for AI Generation)</h4>
-          <p className="section-description">Provide detailed information about the job to help AI generate better CV and Cover Letter.</p>
+          <h4>Job Details</h4>
+          <p className="section-description">Provide detailed information about the job position.</p>
           
           <div className="form-group">
             <label htmlFor="jobDescription">Job Description</label>
@@ -459,6 +515,21 @@ export default function NewApplication() {
                 <HiDocument className="label-icon" />
                 CV / Resume
               </label>
+              <button
+                type="button"
+                className="btn-generate-doc"
+                onClick={() => handleGenerateDocument('cv')}
+                disabled={generating.cv}
+              >
+                {generating.cv ? (
+                  <>
+                    <span className="spinner-small" />
+                    Generating CV...
+                  </>
+                ) : (
+                  'Generate CV'
+                )}
+              </button>
               <div className="file-upload-wrapper">
                 <input
                   ref={cvFileInputRef}
@@ -480,6 +551,71 @@ export default function NewApplication() {
                   )}
                 </label>
               </div>
+              {formData.cvUrl && !cvFile && !(formData.cvVersions && formData.cvVersions.length > 0) && (
+                <div className="uploaded-file-display">
+                  <div className="uploaded-file-info">
+                    <HiDocument className="uploaded-file-icon" />
+                    <span className="uploaded-file-name">Generated CV</span>
+                    <a
+                      href={formData.cvUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="remove-file-btn"
+                      aria-label="Download generated CV"
+                    >
+                      <HiDownload />
+                    </a>
+                  </div>
+                </div>
+              )}
+              {formData.cvVersions && formData.cvVersions.length > 0 && (
+                <div className="uploaded-file-display">
+                  <div className="uploaded-file-info">
+                    <HiDocument className="uploaded-file-icon" />
+                    <span className="uploaded-file-name">Generated CV Versions</span>
+                  </div>
+                  {formData.cvVersions.map(version => (
+                    <div key={`cv-version-${version.version}`} className="uploaded-file-info">
+                      <span className="uploaded-file-name">{version.label}</span>
+                      <a
+                        href={version.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="remove-file-btn"
+                        aria-label={`Download ${version.label}`}
+                      >
+                        <HiDownload />
+                      </a>
+                      <button
+                        type="button"
+                        className="remove-file-btn"
+                        onClick={async () => {
+                          try {
+                            if (version.fileKey) {
+                              await deleteFile(version.fileKey);
+                            }
+                          } catch (err) {
+                            console.error('Error deleting file from S3:', err);
+                          }
+                          setFormData(prev => {
+                            const updatedVersions = removeVersion(prev.cvVersions, version.fileKey, version.url);
+                            const latest = updatedVersions[updatedVersions.length - 1];
+                            return {
+                              ...prev,
+                              cvVersions: updatedVersions,
+                              cvUrl: latest?.url,
+                              cvFileKey: latest?.fileKey,
+                            };
+                          });
+                        }}
+                        aria-label={`Delete ${version.label}`}
+                      >
+                        <HiX />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               {formData.cvUrl && cvFile && (
                 <div className="uploaded-file-display">
                   <div className="uploaded-file-info">
@@ -522,10 +658,11 @@ export default function NewApplication() {
                           // Continue with state cleanup even if S3 deletion fails
                         }
                         // Clear state
-                        setFormData(prev => ({ 
-                          ...prev, 
+                        setFormData(prev => ({
+                          ...prev,
                           cvUrl: undefined,
-                          cvFileKey: undefined 
+                          cvFileKey: undefined,
+                          cvVersions: removeVersion(prev.cvVersions, formData.cvFileKey, formData.cvUrl),
                         }));
                         setCvFile(null);
                         // Clear file input value to allow re-upload
@@ -546,24 +683,6 @@ export default function NewApplication() {
                   </div>
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => handleGenerateDocument('cv')}
-                disabled={generatingCV || !!formData.cvUrl}
-                className="btn-generate-doc"
-              >
-                {generatingCV ? (
-                  <>
-                    <div className="spinner-small"></div>
-                    <span>Generating CV...</span>
-                  </>
-                ) : (
-                  <>
-                    <HiSparkles className="btn-icon" />
-                    <span>Generate CV</span>
-                  </>
-                )}
-              </button>
             </div>
 
             <div className="form-group">
@@ -571,6 +690,21 @@ export default function NewApplication() {
                 <HiDocument className="label-icon" />
                 Cover Letter
               </label>
+              <button
+                type="button"
+                className="btn-generate-doc"
+                onClick={() => handleGenerateDocument('coverLetter')}
+                disabled={generating.coverLetter}
+              >
+                {generating.coverLetter ? (
+                  <>
+                    <span className="spinner-small" />
+                    Generating Cover Letter...
+                  </>
+                ) : (
+                  'Generate Cover Letter'
+                )}
+              </button>
               <div className="file-upload-wrapper">
                 <input
                   ref={coverLetterFileInputRef}
@@ -592,6 +726,71 @@ export default function NewApplication() {
                   )}
                 </label>
               </div>
+              {formData.coverLetterUrl && !coverLetterFile && !(formData.coverLetterVersions && formData.coverLetterVersions.length > 0) && (
+                <div className="uploaded-file-display">
+                  <div className="uploaded-file-info">
+                    <HiDocument className="uploaded-file-icon" />
+                    <span className="uploaded-file-name">Generated Cover Letter</span>
+                    <a
+                      href={formData.coverLetterUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="remove-file-btn"
+                      aria-label="Download generated cover letter"
+                    >
+                      <HiDownload />
+                    </a>
+                  </div>
+                </div>
+              )}
+              {formData.coverLetterVersions && formData.coverLetterVersions.length > 0 && (
+                <div className="uploaded-file-display">
+                  <div className="uploaded-file-info">
+                    <HiDocument className="uploaded-file-icon" />
+                    <span className="uploaded-file-name">Generated Cover Letter Versions</span>
+                  </div>
+                  {formData.coverLetterVersions.map(version => (
+                    <div key={`cover-version-${version.version}`} className="uploaded-file-info">
+                      <span className="uploaded-file-name">{version.label}</span>
+                      <a
+                        href={version.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="remove-file-btn"
+                        aria-label={`Download ${version.label}`}
+                      >
+                        <HiDownload />
+                      </a>
+                      <button
+                        type="button"
+                        className="remove-file-btn"
+                        onClick={async () => {
+                          try {
+                            if (version.fileKey) {
+                              await deleteFile(version.fileKey);
+                            }
+                          } catch (err) {
+                            console.error('Error deleting file from S3:', err);
+                          }
+                          setFormData(prev => {
+                            const updatedVersions = removeVersion(prev.coverLetterVersions, version.fileKey, version.url);
+                            const latest = updatedVersions[updatedVersions.length - 1];
+                            return {
+                              ...prev,
+                              coverLetterVersions: updatedVersions,
+                              coverLetterUrl: latest?.url,
+                              coverLetterFileKey: latest?.fileKey,
+                            };
+                          });
+                        }}
+                        aria-label={`Delete ${version.label}`}
+                      >
+                        <HiX />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               {formData.coverLetterUrl && coverLetterFile && (
                 <div className="uploaded-file-display">
                   <div className="uploaded-file-info">
@@ -634,10 +833,11 @@ export default function NewApplication() {
                           // Continue with state cleanup even if S3 deletion fails
                         }
                         // Clear state
-                        setFormData(prev => ({ 
-                          ...prev, 
+                        setFormData(prev => ({
+                          ...prev,
                           coverLetterUrl: undefined,
-                          coverLetterFileKey: undefined 
+                          coverLetterFileKey: undefined,
+                          coverLetterVersions: removeVersion(prev.coverLetterVersions, formData.coverLetterFileKey, formData.coverLetterUrl),
                         }));
                         setCoverLetterFile(null);
                         // Clear file input value to allow re-upload
@@ -658,24 +858,6 @@ export default function NewApplication() {
                   </div>
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => handleGenerateDocument('coverLetter')}
-                disabled={generatingCoverLetter || !!formData.coverLetterUrl}
-                className="btn-generate-doc"
-              >
-                {generatingCoverLetter ? (
-                  <>
-                    <div className="spinner-small"></div>
-                    <span>Generating Cover Letter...</span>
-                  </>
-                ) : (
-                  <>
-                    <HiSparkles className="btn-icon" />
-                    <span>Generate Cover Letter</span>
-                  </>
-                )}
-              </button>
             </div>
           </div>
         </div>
@@ -686,7 +868,7 @@ export default function NewApplication() {
               <HiPlusCircle className="btn-icon" />
               <span>{loading ? 'Creating...' : 'Create Application'}</span>
             </button>
-            <button type="button" onClick={() => navigate('/applications')} className="btn btn-secondary">
+            <button type="button" onClick={handleCancel} className="btn btn-secondary">
               <HiX className="btn-icon" />
               <span>Cancel</span>
             </button>

@@ -79,6 +79,7 @@ export default function GenerateDocuments() {
       setError(null);
       setSuccess(null);
 
+      const timezoneOffset = -new Date().getTimezoneOffset();
       const response = await fetch(`${API_BASE_URL}/generate-documents`, {
         method: 'POST',
         headers: {
@@ -88,6 +89,7 @@ export default function GenerateDocuments() {
           userProfile,
           jobApplication: application,
           documentType,
+          timezoneOffset,
         }),
       });
 

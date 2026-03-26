@@ -116,10 +116,10 @@ exports.handler = async (event) => {
     // Determine file prefix (CV or CoverLetter)
     const filePrefix = fileCategory === 'CoverLetter' ? 'CoverLetter' : 'CV';
     
-    // Create file key: userId/CV_CompanyName_DDMMYYYY_HHMM.ext
+    // Create file key: userId/CV_CompanyName_DDMMYYYY_HHMM_2.ext
     const fileKey = userId 
-      ? `${userId}/${filePrefix}_${sanitizedCompany}_${dateStr}_${timeStr}.${fileExtension}`
-      : `uploads/${filePrefix}_${sanitizedCompany}_${dateStr}_${timeStr}_${uuidv4()}.${fileExtension}`;
+      ? `${userId}/${filePrefix}_${sanitizedCompany}_${dateStr}_${timeStr}_2.${fileExtension}`
+      : `uploads/${filePrefix}_${sanitizedCompany}_${dateStr}_${timeStr}_${uuidv4()}_2.${fileExtension}`;
 
     // Generate presigned URL for PUT operation (upload)
     const presignedUrl = s3.getSignedUrl('putObject', {

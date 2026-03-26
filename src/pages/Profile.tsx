@@ -624,7 +624,8 @@ export default function Profile() {
       }
 
       // Languages
-      if (profile.languages && profile.languages.length > 0) {
+      const languages = profile.languages ?? [];
+      if (languages.length > 0) {
         if (yPos > 265) {
           doc.addPage();
           yPos = margin;
@@ -636,7 +637,7 @@ export default function Profile() {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
 
-        profile.languages.forEach((lang, idx) => {
+        languages.forEach((lang, idx) => {
           if (yPos > 265) {
             doc.addPage();
             yPos = margin;
@@ -644,7 +645,7 @@ export default function Profile() {
           const line = `${lang.language} — ${lang.proficiency}`;
           doc.text(line, margin, yPos);
           yPos += 5;
-          if (idx < profile.languages.length - 1) {
+          if (idx < languages.length - 1) {
             yPos += 0;
           }
         });

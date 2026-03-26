@@ -1,7 +1,30 @@
 const AWS = require('aws-sdk');
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
+const s3 = new AWS.S3();
 const APPLICATIONS_TABLE = process.env.APPLICATIONS_TABLE;
+const UPLOADS_BUCKET = process.env.UPLOADS_BUCKET;
+const PRESIGNED_EXPIRES = 3600 * 24 * 7;
+
+const buildSignedUrl = (fileKey) => {
+  if (!UPLOADS_BUCKET || !fileKey) return undefined;
+  return s3.getSignedUrl('getObject', {
+    Bucket: UPLOADS_BUCKET,
+    Key: fileKey,
+    Expires: PRESIGNED_EXPIRES,
+  });
+};
+
+const refreshVersions = (versions) => {
+  if (!Array.isArray(versions)) return versions;
+  return versions.map(version => {
+    if (!version?.fileKey) return version;
+    return {
+      ...version,
+      url: buildSignedUrl(version.fileKey) || version.url,
+    };
+  });
+};
 
 exports.handler = async (event) => {
   console.log('Event:', JSON.stringify(event, null, 2));
@@ -40,13 +63,22 @@ exports.handler = async (event) => {
       };
     }
 
+    const item = result.Item;
+    const refreshed = {
+      ...item,
+      cvUrl: item.cvFileKey ? buildSignedUrl(item.cvFileKey) || item.cvUrl : item.cvUrl,
+      coverLetterUrl: item.coverLetterFileKey ? buildSignedUrl(item.coverLetterFileKey) || item.coverLetterUrl : item.coverLetterUrl,
+      cvVersions: refreshVersions(item.cvVersions),
+      coverLetterVersions: refreshVersions(item.coverLetterVersions),
+    };
+
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify(result.Item),
+      body: JSON.stringify(refreshed),
     };
   } catch (error) {
     console.error('Error getting application:', error);
@@ -63,6 +95,7 @@ exports.handler = async (event) => {
     };
   }
 };
+
 
 
 

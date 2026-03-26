@@ -1,18 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { HiArrowLeft, HiPencil, HiTrash, HiX, HiCheck, HiLocationMarker, HiCalendar, HiCurrencyDollar, HiLink, HiMail, HiUser, HiDocument, HiDownload, HiClock, HiVideoCamera } from 'react-icons/hi';
-import { getApplication, updateApplication, deleteApplication } from '../utils/api';
-import type { JobApplication, UpdateApplicationInput } from '../types/application';
+import { getApplication, updateApplication, deleteApplication, getProfile, deleteFile } from '../utils/api';
+import type { JobApplication, UpdateApplicationInput, DocumentVersion } from '../types/application';
+import { useAuth } from '../contexts/AuthContext';
 import './ApplicationDetail.css';
 
 export default function ApplicationDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [application, setApplication] = useState<JobApplication | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState<UpdateApplicationInput>({});
+  const [generating, setGenerating] = useState({ cv: false, coverLetter: false });
+
+  const buildVersionEntry = (fileUrl: string, fileKey: string | undefined, version: number, source: 'generated' | 'uploaded'): DocumentVersion => ({
+    version,
+    label: `v${version}`,
+    url: fileUrl,
+    fileKey,
+    createdAt: new Date().toISOString(),
+    source,
+  });
+
+  const getLatestVersion = (versions: DocumentVersion[] | undefined) => {
+    if (!versions || versions.length === 0) return null;
+    return [...versions].sort((a, b) => b.version - a.version)[0];
+  };
 
   useEffect(() => {
     if (id) {
@@ -85,6 +103,73 @@ export default function ApplicationDetail() {
     }
   };
 
+  const handleGenerateDocument = async (documentType: 'cv' | 'coverLetter') => {
+    if (!id || !application) return;
+
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    if (!apiBaseUrl) {
+      setGenerationError('API base URL is not configured.');
+      return;
+    }
+
+    const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
+    if (!userId) {
+      setGenerationError('Please sign in to generate documents.');
+      return;
+    }
+
+    try {
+      setGenerationError(null);
+      setGenerating(prev => ({ ...prev, [documentType]: true }));
+
+      const userProfile = await getProfile(userId);
+      if (!userProfile) {
+        throw new Error('Profile not found. Please save your profile first.');
+      }
+
+      const timezoneOffset = -new Date().getTimezoneOffset();
+      const response = await fetch(`${apiBaseUrl}/generate-documents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userProfile,
+          jobApplication: application,
+          documentType,
+          timezoneOffset,
+        }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || 'Failed to generate document.');
+      }
+
+      const result = await response.json();
+      const s3Key = result.s3Key as string | undefined;
+      const isCv = documentType === 'cv';
+      const existingVersions = isCv
+        ? application?.cvVersions ?? []
+        : application?.coverLetterVersions ?? [];
+      const fallbackVersion = existingVersions.length + 1;
+      const versionNumber = typeof result.version === 'number' ? result.version : fallbackVersion;
+      const newVersion = buildVersionEntry(result.fileUrl, s3Key, versionNumber, 'generated');
+      const updatedVersions = [...existingVersions, newVersion];
+
+      const updatePayload = isCv
+        ? { cvUrl: result.fileUrl, cvFileKey: s3Key, cvVersions: updatedVersions }
+        : { coverLetterUrl: result.fileUrl, coverLetterFileKey: s3Key, coverLetterVersions: updatedVersions };
+
+      const updated = await updateApplication(id, updatePayload);
+      setApplication(updated);
+    } catch (err) {
+      setGenerationError(err instanceof Error ? err.message : 'Failed to generate document.');
+    } finally {
+      setGenerating(prev => ({ ...prev, [documentType]: false }));
+    }
+  };
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       applied: '#6366F1',
@@ -95,6 +180,37 @@ export default function ApplicationDetail() {
       accepted: '#10B981',
     };
     return colors[status] || '#6B7280';
+  };
+
+  const handleDeleteVersion = async (type: 'cv' | 'coverLetter', version: DocumentVersion) => {
+    if (!application || !id) return;
+    try {
+      if (version.fileKey) {
+        await deleteFile(version.fileKey);
+      }
+
+      const currentVersions = type === 'cv' ? application.cvVersions ?? [] : application.coverLetterVersions ?? [];
+      const updatedVersions = currentVersions.filter(item => item.version !== version.version);
+      const latest = getLatestVersion(updatedVersions);
+
+      const updatePayload =
+        type === 'cv'
+          ? {
+              cvVersions: updatedVersions,
+              cvUrl: latest?.url,
+              cvFileKey: latest?.fileKey,
+            }
+          : {
+              coverLetterVersions: updatedVersions,
+              coverLetterUrl: latest?.url,
+              coverLetterFileKey: latest?.fileKey,
+            };
+
+      const updated = await updateApplication(id, updatePayload);
+      setApplication(updated);
+    } catch (err) {
+      setGenerationError(err instanceof Error ? err.message : 'Failed to delete document version.');
+    }
   };
 
   if (loading) {
@@ -133,6 +249,7 @@ export default function ApplicationDetail() {
       </div>
 
       {error && <div className="error-message">{error}</div>}
+      {generationError && <div className="error-message">{generationError}</div>}
 
       {!editing && application && (
         <div className="application-hero">
@@ -423,40 +540,87 @@ export default function ApplicationDetail() {
               </div>
             )}
 
-            {(application.cvUrl || application.coverLetterUrl) && (
-              <div className="detail-section">
-                <h3>Uploaded Documents</h3>
-                <p className="section-description">Access your CV and cover letter files</p>
-                <div className="documents-grid">
-                  {application.cvUrl && (
-                    <a href={application.cvUrl} target="_blank" rel="noopener noreferrer" className="document-card">
-                      <div className="document-icon-wrapper">
-                        <HiDocument className="document-icon" />
-                      </div>
-                      <div className="document-content">
-                        <h4>CV / Resume</h4>
-                        <p>Click to view or download</p>
-                        <span className="document-url">{application.cvUrl.substring(0, 50)}...</span>
-                      </div>
-                      <HiDownload className="download-icon" />
-                    </a>
-                  )}
-                  {application.coverLetterUrl && (
-                    <a href={application.coverLetterUrl} target="_blank" rel="noopener noreferrer" className="document-card">
-                      <div className="document-icon-wrapper">
-                        <HiDocument className="document-icon" />
-                      </div>
-                      <div className="document-content">
-                        <h4>Cover Letter</h4>
-                        <p>Click to view or download</p>
-                        <span className="document-url">{application.coverLetterUrl.substring(0, 50)}...</span>
-                      </div>
-                      <HiDownload className="download-icon" />
-                    </a>
-                  )}
-                </div>
+            <div className="detail-section">
+              <h3>Documents</h3>
+              <p className="section-description">Generate tailored documents or download existing files</p>
+              <div className="document-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleGenerateDocument('cv')}
+                  disabled={generating.cv}
+                >
+                  {generating.cv ? 'Generating CV...' : 'Generate CV'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleGenerateDocument('coverLetter')}
+                  disabled={generating.coverLetter}
+                >
+                  {generating.coverLetter ? 'Generating Cover Letter...' : 'Generate Cover Letter'}
+                </button>
               </div>
-            )}
+              {(() => {
+                const hasCvVersions = (application.cvVersions?.length ?? 0) > 0;
+                const hasCoverVersions = (application.coverLetterVersions?.length ?? 0) > 0;
+                if (!hasCvVersions && !hasCoverVersions && !application.cvUrl && !application.coverLetterUrl) {
+                  return null;
+                }
+                return (
+                <>
+                  {hasCvVersions && (
+                    <div className="documents-grid">
+                      {(application.cvVersions ?? []).map(version => (
+                        <div key={`cv-${version.version}`} className="document-card">
+                          <div className="document-icon-wrapper">
+                            <HiDocument className="document-icon" />
+                          </div>
+                          <div className="document-content">
+                            <h4>Generated CV {version.label}</h4>
+                            <p>{new Date(version.createdAt).toLocaleString()} • {version.source}</p>
+                            <span className="document-url">{version.url.substring(0, 50)}...</span>
+                          </div>
+                          <div className="document-actions-inline">
+                            <a href={version.url} target="_blank" rel="noopener noreferrer" className="download-icon">
+                              <HiDownload />
+                            </a>
+                            <button type="button" className="delete-icon" onClick={() => handleDeleteVersion('cv', version)}>
+                              <HiX />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {hasCoverVersions && (
+                    <div className="documents-grid">
+                      {(application.coverLetterVersions ?? []).map(version => (
+                        <div key={`cover-${version.version}`} className="document-card">
+                          <div className="document-icon-wrapper">
+                            <HiDocument className="document-icon" />
+                          </div>
+                          <div className="document-content">
+                            <h4>Generated Cover Letter {version.label}</h4>
+                            <p>{new Date(version.createdAt).toLocaleString()} • {version.source}</p>
+                            <span className="document-url">{version.url.substring(0, 50)}...</span>
+                          </div>
+                          <div className="document-actions-inline">
+                            <a href={version.url} target="_blank" rel="noopener noreferrer" className="download-icon">
+                              <HiDownload />
+                            </a>
+                            <button type="button" className="delete-icon" onClick={() => handleDeleteVersion('coverLetter', version)}>
+                              <HiX />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+                );
+              })()}
+            </div>
 
             <div className="detail-meta">
               <span>Created: {new Date(application.createdAt).toLocaleString()}</span>

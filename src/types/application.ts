@@ -29,10 +29,21 @@ export interface JobApplication {
   cvFileKey?: string;
   coverLetterUrl?: string;
   coverLetterFileKey?: string;
+  cvVersions?: DocumentVersion[];
+  coverLetterVersions?: DocumentVersion[];
   jobDescription?: string;
   requirements?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DocumentVersion {
+  version: number;
+  label: string;
+  url: string;
+  fileKey?: string;
+  createdAt: string;
+  source: 'generated' | 'uploaded';
 }
 
 export interface CreateApplicationInput {
@@ -57,6 +68,8 @@ export interface CreateApplicationInput {
   cvFileKey?: string;
   coverLetterUrl?: string;
   coverLetterFileKey?: string;
+  cvVersions?: DocumentVersion[];
+  coverLetterVersions?: DocumentVersion[];
   jobDescription?: string;
   requirements?: string;
 }
@@ -82,6 +95,8 @@ export interface UpdateApplicationInput {
   cvFileKey?: string;
   coverLetterUrl?: string;
   coverLetterFileKey?: string;
+  cvVersions?: DocumentVersion[];
+  coverLetterVersions?: DocumentVersion[];
   jobDescription?: string;
   requirements?: string;
 }

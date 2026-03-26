@@ -248,6 +248,12 @@ data "archive_file" "update_profile" {
   output_path = "${path.module}/../lambda/update-profile.zip"
 }
 
+data "archive_file" "generate_documents" {
+  type        = "zip"
+  source_dir  = "${path.module}/../lambda/generate-documents"
+  output_path = "${path.module}/../lambda/generate-documents.zip"
+}
+
 data "archive_file" "delete_file" {
   type        = "zip"
   source_dir  = "${path.module}/../lambda/delete-file"
@@ -288,6 +294,7 @@ resource "aws_lambda_function" "get_application" {
   environment {
     variables = {
       APPLICATIONS_TABLE = aws_dynamodb_table.applications.name
+      UPLOADS_BUCKET     = aws_s3_bucket.uploads.id
     }
   }
 
@@ -445,6 +452,29 @@ resource "aws_lambda_function" "update_profile" {
   }
 }
 
+resource "aws_lambda_function" "generate_documents" {
+  filename         = data.archive_file.generate_documents.output_path
+  function_name    = "${var.project_name}-generate-documents"
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "index.handler"
+  source_code_hash = data.archive_file.generate_documents.output_base64sha256
+  runtime          = "nodejs20.x"
+  timeout          = 120
+  memory_size      = 512
+
+  environment {
+    variables = {
+      DOCUMENTS_BUCKET = aws_s3_bucket.uploads.id
+      BEDROCK_MODEL_ID = var.bedrock_model_id
+    }
+  }
+
+  tags = {
+    Name    = "${var.project_name}-generate-documents"
+    Project = var.project_name
+  }
+}
+
 # API Gateway
 resource "aws_apigatewayv2_api" "api" {
   name          = "${var.project_name}-api"
@@ -527,6 +557,13 @@ resource "aws_apigatewayv2_integration" "update_profile" {
   integration_method = "POST"
 }
 
+resource "aws_apigatewayv2_integration" "generate_documents" {
+  api_id             = aws_apigatewayv2_api.api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = aws_lambda_function.generate_documents.invoke_arn
+  integration_method = "POST"
+}
+
 # API Gateway Routes
 resource "aws_apigatewayv2_route" "create_application" {
   api_id    = aws_apigatewayv2_api.api.id
@@ -580,6 +617,12 @@ resource "aws_apigatewayv2_route" "update_profile" {
   api_id    = aws_apigatewayv2_api.api.id
   route_key = "PUT /profile"
   target    = "integrations/${aws_apigatewayv2_integration.update_profile.id}"
+}
+
+resource "aws_apigatewayv2_route" "generate_documents" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "POST /generate-documents"
+  target    = "integrations/${aws_apigatewayv2_integration.generate_documents.id}"
 }
 
 # Lambda Permissions
@@ -651,6 +694,14 @@ resource "aws_lambda_permission" "update_profile" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.update_profile.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "generate_documents" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.generate_documents.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
 }

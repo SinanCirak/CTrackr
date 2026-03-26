@@ -1,7 +1,7 @@
 aws_region   = "ca-central-1"
 project_name = "ctrackr"
 environment  = "prod"
-bucket_name  = "ctrackr-website-prod"
+bucket_name  = "ctrackr"
 domain_name  = "ctrackr.cirak.ca"
 
 # Note: CloudFront certificates must be in us-east-1

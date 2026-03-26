@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HiHome, HiBriefcase, HiPlusCircle, HiMenu, HiX, HiLogout, HiUser, HiCog, HiDocumentText, HiChevronDown } from 'react-icons/hi';
+import { HiHome, HiBriefcase, HiPlusCircle, HiMenu, HiX, HiLogout, HiUser, HiCog, HiChevronDown } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
 import './Layout.css';
 
@@ -104,7 +104,6 @@ export default function Layout({ children }: LayoutProps) {
                         <div className="user-menu-email">{user?.signInDetails?.loginId || ''}</div>
                       </div>
                     </div>
-                    <div className="user-menu-divider"></div>
                     <Link
                       to="/profile"
                       className={`user-menu-item ${isActive('/profile') ? 'active' : ''}`}
@@ -116,18 +115,6 @@ export default function Layout({ children }: LayoutProps) {
                       <HiUser className="user-menu-item-icon" />
                       <span>Profile</span>
                     </Link>
-                    <Link
-                      to="/generate-documents"
-                      className={`user-menu-item ${isActive('/generate-documents') ? 'active' : ''}`}
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        setMobileMenuOpen(false);
-                      }}
-                    >
-                      <HiDocumentText className="user-menu-item-icon" />
-                      <span>Generate Documents</span>
-                    </Link>
-                    <div className="user-menu-divider"></div>
                     <button
                       className="user-menu-item user-menu-signout"
                       onClick={handleSignOut}
