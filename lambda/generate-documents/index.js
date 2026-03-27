@@ -431,6 +431,18 @@ exports.handler = async (event) => {
     }
 
     const haikuPrep = await getHaikuPrep(userProfile, jobApplication);
+    if (!haikuPrep) {
+      return {
+        statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify({
+          error: 'Haiku preprocessing is required but not configured.',
+        }),
+      };
+    }
 
     // Generate prompt based on document type
     const prompt = documentType === 'cv'
@@ -549,7 +561,9 @@ function generateCVPrompt(userProfile, jobApplication, haikuPrep) {
   ].filter(Boolean).join(' ');
   const jobKeywords = jobParsed.keywords || extractKeywords(jobTextSource, 12);
   const combinedKeywords = Array.from(new Set([...(parsed.keywords || []), ...jobKeywords]));
-  const keywords = Array.from(new Set([...(haikuPrep?.keywords || []), ...combinedKeywords])).slice(0, 20);
+  const keywords = (haikuPrep?.keywords && haikuPrep.keywords.length > 0)
+    ? haikuPrep.keywords.slice(0, 20)
+    : Array.from(new Set([...(haikuPrep?.keywords || []), ...combinedKeywords])).slice(0, 20);
   const roleFocus = getRoleFocus(jobApplication.position, keywords);
 
   const summary = parsed.summary || limitText(userProfile.summary, MAX_SUMMARY_CHARS);
