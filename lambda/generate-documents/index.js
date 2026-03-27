@@ -384,13 +384,16 @@ exports.handler = async (event) => {
 
 function generateCVPrompt(userProfile, jobApplication) {
   const parsed = userProfile.parsedProfile || {};
+  const jobParsed = jobApplication.parsedJob || {};
   const jobTextSource = [
     jobApplication.position,
+    jobParsed.jobSummary,
+    jobParsed.requirementsSummary,
     jobApplication.jobDescription,
     jobApplication.requirements,
     jobApplication.notes
   ].filter(Boolean).join(' ');
-  const jobKeywords = extractKeywords(jobTextSource, 12);
+  const jobKeywords = jobParsed.keywords || extractKeywords(jobTextSource, 12);
   const keywords = Array.from(new Set([...(parsed.keywords || []), ...jobKeywords])).slice(0, 20);
   const roleFocus = getRoleFocus(jobApplication.position, keywords);
 
@@ -421,8 +424,8 @@ function generateCVPrompt(userProfile, jobApplication) {
         MAX_ITEMS.projects
       );
   const languages = useParsed ? null : limitList(userProfile.languages, MAX_ITEMS.languages);
-  const jobDescription = limitText(jobApplication.jobDescription || jobApplication.notes, MAX_JOB_TEXT_CHARS);
-  const requirements = limitText(jobApplication.requirements, MAX_REQUIREMENTS_CHARS);
+  const jobDescription = jobParsed.jobSummary || limitText(jobApplication.jobDescription || jobApplication.notes, MAX_JOB_TEXT_CHARS);
+  const requirements = jobParsed.requirementsSummary || limitText(jobApplication.requirements, MAX_REQUIREMENTS_CHARS);
   const skillCategories = useParsed ? [] : limitList(userProfile.skillCategories, 8);
   const skillsText = parsed.skillsText || (skillCategories.length
     ? skillCategories.map(category => {
@@ -536,7 +539,8 @@ Generate the CV now:`;
 function generateCoverLetterPrompt(userProfile, jobApplication) {
   const parsed = userProfile.parsedProfile || {};
   const summary = parsed.summary || limitText(userProfile.summary, MAX_SUMMARY_CHARS);
-  const jobText = limitText(jobApplication.notes || jobApplication.jobDescription || jobApplication.requirements, MAX_JOB_TEXT_CHARS);
+  const jobParsed = jobApplication.parsedJob || {};
+  const jobText = jobParsed.jobSummary || limitText(jobApplication.notes || jobApplication.jobDescription || jobApplication.requirements, MAX_JOB_TEXT_CHARS);
   const role = jobApplication.position || 'Software Developer';
   const topProject = buildTopProject(userProfile, parsed);
   const topSkills = buildTopSkills(userProfile, parsed);

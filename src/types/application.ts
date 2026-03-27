@@ -33,8 +33,16 @@ export interface JobApplication {
   coverLetterVersions?: DocumentVersion[];
   jobDescription?: string;
   requirements?: string;
+  parsedJob?: ParsedJob;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ParsedJob {
+  jobSummary: string;
+  requirementsSummary: string;
+  keywords: string[];
+  parsedAt: string;
 }
 
 export interface DocumentVersion {
@@ -72,6 +80,7 @@ export interface CreateApplicationInput {
   coverLetterVersions?: DocumentVersion[];
   jobDescription?: string;
   requirements?: string;
+  parsedJob?: ParsedJob;
 }
 
 export interface UpdateApplicationInput {
@@ -99,5 +108,6 @@ export interface UpdateApplicationInput {
   coverLetterVersions?: DocumentVersion[];
   jobDescription?: string;
   requirements?: string;
+  parsedJob?: ParsedJob;
 }
 
