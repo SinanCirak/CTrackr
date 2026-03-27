@@ -334,13 +334,19 @@ const parseJsonSafe = (text) => {
 };
 
 const getHaikuPrep = async (userProfile, jobApplication) => {
-  const cached = jobApplication?.parsedJob?.haikuPrep;
-  if (cached && typeof cached === 'object') {
+  const parsedJob = jobApplication?.parsedJob || {};
+  const cached = parsedJob?.haikuPrep;
+  if (
+    cached &&
+    typeof cached === 'object' &&
+    cached.parsedAt &&
+    parsedJob.parsedAt &&
+    cached.parsedAt === parsedJob.parsedAt
+  ) {
     return cached;
   }
   if (!HAIKU_MODEL_ID) return null;
   const parsedProfile = userProfile.parsedProfile || {};
-  const parsedJob = jobApplication.parsedJob || {};
   const input = {
     role: jobApplication.position || '',
     company: jobApplication.company || '',
@@ -400,7 +406,7 @@ ${JSON.stringify(input)}
     topExperience: parsed.topExperience || '',
     topSkills: Array.isArray(parsed.topSkills) ? parsed.topSkills : [],
     keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
-    parsedAt: new Date().toISOString(),
+    parsedAt: parsedJob.parsedAt || new Date().toISOString(),
   };
 };
 
