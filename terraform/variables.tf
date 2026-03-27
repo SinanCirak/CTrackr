@@ -28,6 +28,12 @@ variable "bedrock_model_id" {
   default     = "anthropic.claude-3-sonnet-20240229-v1:0"
 }
 
+variable "bedrock_haiku_model_id" {
+  description = "Amazon Bedrock model ID for Haiku parsing/extraction"
+  type        = string
+  default     = "anthropic.claude-3-haiku-20240307-v1:0"
+}
+
 variable "domain_name" {
   description = "Domain name for the website (e.g., ctrackr.cirak.ca)"
   type        = string

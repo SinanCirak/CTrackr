@@ -8,6 +8,7 @@ const s3Client = new S3Client({ region: process.env.AWS_REGION });
 
 const DOCUMENTS_BUCKET = process.env.DOCUMENTS_BUCKET;
 const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-sonnet-20240229-v1:0';
+const HAIKU_MODEL_ID = process.env.BEDROCK_HAIKU_MODEL_ID;
 
 const MAX_JOB_TEXT_CHARS = 2500;
 const MAX_REQUIREMENTS_CHARS = 1500;
@@ -324,6 +325,80 @@ const buildTopExperience = (profile, parsed, keywords) => {
   return buildExperienceLine(best) || 'Not provided';
 };
 
+const parseJsonSafe = (text) => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
+const getHaikuPrep = async (userProfile, jobApplication) => {
+  if (!HAIKU_MODEL_ID) return null;
+  const parsedProfile = userProfile.parsedProfile || {};
+  const parsedJob = jobApplication.parsedJob || {};
+  const input = {
+    role: jobApplication.position || '',
+    company: jobApplication.company || '',
+    profileSummary: parsedProfile.summary || limitText(userProfile.summary, MAX_SUMMARY_CHARS),
+    skillsText: parsedProfile.skillsText || '',
+    experienceText: parsedProfile.experienceText || '',
+    projectsText: parsedProfile.projectsText || '',
+    jobSummary: parsedJob.jobSummary || limitText(jobApplication.jobDescription || jobApplication.notes, MAX_JOB_TEXT_CHARS),
+    requirementsSummary: parsedJob.requirementsSummary || limitText(jobApplication.requirements, MAX_REQUIREMENTS_CHARS),
+    seedKeywords: parsedJob.keywords || [],
+  };
+
+  const prompt = `You are a strict extractor. Return ONLY valid JSON.
+
+TASK:
+- Choose the best matching project and experience for the role.
+- Pick the top 2-3 skill lines most relevant to the role.
+- Clean and return up to 15 keywords relevant to the role.
+- Use ONLY the provided input. Do NOT invent.
+
+OUTPUT JSON SHAPE:
+{
+  "topProject": "string",
+  "topExperience": "string",
+  "topSkills": ["string", "string"],
+  "keywords": ["keyword1", "keyword2"]
+}
+
+INPUT:
+${JSON.stringify(input)}
+`;
+
+  const haikuResponse = await bedrockClient.send(
+    new InvokeModelCommand({
+      modelId: HAIKU_MODEL_ID,
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        anthropic_version: 'bedrock-2023-05-31',
+        max_tokens: 500,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      }),
+    })
+  );
+
+  const responseBody = JSON.parse(new TextDecoder().decode(haikuResponse.body));
+  const text = responseBody.content?.[0]?.text || '';
+  const parsed = parseJsonSafe(text);
+  if (!parsed || typeof parsed !== 'object') return null;
+  return {
+    topProject: parsed.topProject || '',
+    topExperience: parsed.topExperience || '',
+    topSkills: Array.isArray(parsed.topSkills) ? parsed.topSkills : [],
+    keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+  };
+};
+
 exports.handler = async (event) => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
@@ -344,10 +419,12 @@ exports.handler = async (event) => {
       };
     }
 
+    const haikuPrep = await getHaikuPrep(userProfile, jobApplication);
+
     // Generate prompt based on document type
     const prompt = documentType === 'cv'
-      ? generateCVPrompt(userProfile, jobApplication)
-      : generateCoverLetterPrompt(userProfile, jobApplication);
+      ? generateCVPrompt(userProfile, jobApplication, haikuPrep)
+      : generateCoverLetterPrompt(userProfile, jobApplication, haikuPrep);
 
     // Call Bedrock
     const bedrockResponse = await bedrockClient.send(
@@ -447,7 +524,7 @@ exports.handler = async (event) => {
   }
 };
 
-function generateCVPrompt(userProfile, jobApplication) {
+function generateCVPrompt(userProfile, jobApplication, haikuPrep) {
   const parsed = userProfile.parsedProfile || {};
   const jobParsed = jobApplication.parsedJob || {};
   const jobTextSource = [
@@ -459,7 +536,8 @@ function generateCVPrompt(userProfile, jobApplication) {
     jobApplication.notes
   ].filter(Boolean).join(' ');
   const jobKeywords = jobParsed.keywords || extractKeywords(jobTextSource, 12);
-  const keywords = Array.from(new Set([...(parsed.keywords || []), ...jobKeywords])).slice(0, 20);
+  const combinedKeywords = Array.from(new Set([...(parsed.keywords || []), ...jobKeywords]));
+  const keywords = Array.from(new Set([...(haikuPrep?.keywords || []), ...combinedKeywords])).slice(0, 20);
   const roleFocus = getRoleFocus(jobApplication.position, keywords);
 
   const summary = parsed.summary || limitText(userProfile.summary, MAX_SUMMARY_CHARS);
@@ -601,16 +679,18 @@ Instructions:
 Generate the CV now:`;
 }
 
-function generateCoverLetterPrompt(userProfile, jobApplication) {
+function generateCoverLetterPrompt(userProfile, jobApplication, haikuPrep) {
   const parsed = userProfile.parsedProfile || {};
   const summary = parsed.summary || limitText(userProfile.summary, MAX_SUMMARY_CHARS);
   const jobParsed = jobApplication.parsedJob || {};
   const jobText = jobParsed.jobSummary || limitText(jobApplication.notes || jobApplication.jobDescription || jobApplication.requirements, MAX_JOB_TEXT_CHARS);
   const role = jobApplication.position || 'Software Developer';
   const jobKeywords = getJobKeywords(jobApplication);
-  const topProject = buildTopProject(userProfile, parsed, jobKeywords);
-  const topSkills = buildTopSkills(userProfile, parsed, jobKeywords);
-  const topExperience = buildTopExperience(userProfile, parsed, jobKeywords);
+  const topProject = haikuPrep?.topProject || buildTopProject(userProfile, parsed, jobKeywords);
+  const topSkills = (haikuPrep?.topSkills && haikuPrep.topSkills.length > 0)
+    ? haikuPrep.topSkills.join('\n')
+    : buildTopSkills(userProfile, parsed, jobKeywords);
+  const topExperience = haikuPrep?.topExperience || buildTopExperience(userProfile, parsed, jobKeywords);
 
   return `You are a professional cover letter writer.
 

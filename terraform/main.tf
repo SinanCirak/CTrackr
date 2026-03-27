@@ -466,6 +466,7 @@ resource "aws_lambda_function" "generate_documents" {
     variables = {
       DOCUMENTS_BUCKET = aws_s3_bucket.uploads.id
       BEDROCK_MODEL_ID = var.bedrock_model_id
+      BEDROCK_HAIKU_MODEL_ID = var.bedrock_haiku_model_id
     }
   }
 

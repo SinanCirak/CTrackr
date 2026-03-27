@@ -3,6 +3,8 @@ project_name = "ctrackr"
 environment  = "prod"
 bucket_name  = "ctrackr"
 domain_name  = "ctrackr.cirak.ca"
+bedrock_model_id = "anthropic.claude-3-sonnet-20240229-v1:0"
+bedrock_haiku_model_id = "anthropic.claude-3-haiku-20240307-v1:0"
 
 # Note: CloudFront certificates must be in us-east-1
 # This is handled automatically by the separate provider in main.tf
