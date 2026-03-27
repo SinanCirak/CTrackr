@@ -826,7 +826,11 @@ async function generateCVPDF(userProfile, jobApplication, generatedText) {
     
     // Parse and format sections from generated text
     const headerRegex = /^[A-Z][A-Z\s&/]+:$/;
-    const lines = generatedText.split('\n').map(line => line.trimEnd());
+    let lines = generatedText.split('\n').map(line => line.trimEnd());
+    const firstHeaderIndex = lines.findIndex(line => headerRegex.test(line.trim()));
+    if (firstHeaderIndex > 0) {
+      lines = lines.slice(firstHeaderIndex);
+    }
     const sections = [];
     let currentSection = null;
 
