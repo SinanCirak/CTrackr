@@ -294,6 +294,10 @@ export default function NewApplication() {
       }
 
       const result = await response.json();
+      const nextParsedJob = result.haikuPrep
+        ? { ...(formData.parsedJob || {}), haikuPrep: result.haikuPrep }
+        : formData.parsedJob;
+
       if (documentType === 'cv') {
         setFormData(prev => {
           const currentVersions = prev.cvVersions ?? [];
@@ -305,6 +309,7 @@ export default function NewApplication() {
             cvUrl: result.fileUrl,
             cvFileKey: result.s3Key,
             cvVersions: [...currentVersions, newVersion],
+            parsedJob: nextParsedJob,
           };
         });
         if (result.s3Key) {
@@ -321,6 +326,7 @@ export default function NewApplication() {
             coverLetterUrl: result.fileUrl,
             coverLetterFileKey: result.s3Key,
             coverLetterVersions: [...currentVersions, newVersion],
+            parsedJob: nextParsedJob,
           };
         });
         if (result.s3Key) {

@@ -334,6 +334,10 @@ const parseJsonSafe = (text) => {
 };
 
 const getHaikuPrep = async (userProfile, jobApplication) => {
+  const cached = jobApplication?.parsedJob?.haikuPrep;
+  if (cached && typeof cached === 'object') {
+    return cached;
+  }
   if (!HAIKU_MODEL_ID) return null;
   const parsedProfile = userProfile.parsedProfile || {};
   const parsedJob = jobApplication.parsedJob || {};
@@ -396,6 +400,7 @@ ${JSON.stringify(input)}
     topExperience: parsed.topExperience || '',
     topSkills: Array.isArray(parsed.topSkills) ? parsed.topSkills : [],
     keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+    parsedAt: new Date().toISOString(),
   };
 };
 
@@ -506,6 +511,7 @@ exports.handler = async (event) => {
         fileName,
         s3Key,
         version,
+        haikuPrep,
       }),
     };
   } catch (error) {

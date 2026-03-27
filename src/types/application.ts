@@ -33,7 +33,7 @@ export interface JobApplication {
   coverLetterVersions?: DocumentVersion[];
   jobDescription?: string;
   requirements?: string;
-  parsedJob?: ParsedJob;
+  parsedJob?: ParsedJobInput;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,6 +41,17 @@ export interface JobApplication {
 export interface ParsedJob {
   jobSummary: string;
   requirementsSummary: string;
+  keywords: string[];
+  parsedAt: string;
+  haikuPrep?: HaikuPrep;
+}
+
+export type ParsedJobInput = Partial<ParsedJob>;
+
+export interface HaikuPrep {
+  topProject: string;
+  topExperience: string;
+  topSkills: string[];
   keywords: string[];
   parsedAt: string;
 }
@@ -80,7 +91,7 @@ export interface CreateApplicationInput {
   coverLetterVersions?: DocumentVersion[];
   jobDescription?: string;
   requirements?: string;
-  parsedJob?: ParsedJob;
+  parsedJob?: ParsedJobInput;
 }
 
 export interface UpdateApplicationInput {
@@ -108,6 +119,6 @@ export interface UpdateApplicationInput {
   coverLetterVersions?: DocumentVersion[];
   jobDescription?: string;
   requirements?: string;
-  parsedJob?: ParsedJob;
+  parsedJob?: ParsedJobInput;
 }
 

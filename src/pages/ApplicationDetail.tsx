@@ -157,9 +157,12 @@ export default function ApplicationDetail() {
       const newVersion = buildVersionEntry(result.fileUrl, s3Key, versionNumber, 'generated');
       const updatedVersions = [...existingVersions, newVersion];
 
+      const nextParsedJob = result.haikuPrep
+        ? { ...(application.parsedJob || {}), haikuPrep: result.haikuPrep }
+        : application.parsedJob;
       const updatePayload = isCv
-        ? { cvUrl: result.fileUrl, cvFileKey: s3Key, cvVersions: updatedVersions }
-        : { coverLetterUrl: result.fileUrl, coverLetterFileKey: s3Key, coverLetterVersions: updatedVersions };
+        ? { cvUrl: result.fileUrl, cvFileKey: s3Key, cvVersions: updatedVersions, parsedJob: nextParsedJob }
+        : { coverLetterUrl: result.fileUrl, coverLetterFileKey: s3Key, coverLetterVersions: updatedVersions, parsedJob: nextParsedJob };
 
       const updated = await updateApplication(id, updatePayload);
       setApplication(updated);
