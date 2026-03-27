@@ -216,11 +216,21 @@ const firstNonEmptyLine = (text) => {
   return lines[0] || '';
 };
 
-const buildTopProject = (profile, parsed) => {
-  const parsedTop = firstNonEmptyLine(parsed?.projectsText);
-  if (parsedTop) return parsedTop;
-  const proj = Array.isArray(profile.projects) ? profile.projects[0] : null;
-  if (!proj) return 'Not provided';
+const getJobKeywords = (jobApplication) => {
+  const jobParsed = jobApplication?.parsedJob || {};
+  const sourceText = [
+    jobApplication?.position,
+    jobParsed.jobSummary,
+    jobParsed.requirementsSummary,
+    jobApplication?.jobDescription,
+    jobApplication?.requirements,
+    jobApplication?.notes
+  ].filter(Boolean).join(' ');
+  return jobParsed.keywords || extractKeywords(sourceText, 12);
+};
+
+const buildProjectLine = (proj) => {
+  if (!proj) return '';
   const parts = [
     proj.name,
     proj.year ? `(${proj.year})` : '',
@@ -229,26 +239,11 @@ const buildTopProject = (profile, parsed) => {
     Array.isArray(proj.achievements) && proj.achievements.length ? `Highlights: ${proj.achievements.join(', ')}` : '',
     proj.url ? `URL: ${proj.url}` : ''
   ].filter(Boolean);
-  return parts.join(' | ') || 'Not provided';
+  return parts.join(' | ');
 };
 
-const buildTopSkills = (profile, parsed) => {
-  if (parsed?.skillsText) return parsed.skillsText;
-  const skillCategories = Array.isArray(profile.skillCategories) ? profile.skillCategories : [];
-  if (skillCategories.length > 0) {
-    return skillCategories.map(category => {
-      const items = (category.skills || []).join(', ');
-      return `${category.category}: ${items}${category.description ? ` — ${category.description}` : ''}`;
-    }).join('\n');
-  }
-  return profile.skills?.join(', ') || 'Not provided';
-};
-
-const buildTopExperience = (profile, parsed) => {
-  const parsedTop = firstNonEmptyLine(parsed?.experienceText);
-  if (parsedTop) return parsedTop;
-  const exp = Array.isArray(profile.experience) ? profile.experience[0] : null;
-  if (!exp) return 'Not provided';
+const buildExperienceLine = (exp) => {
+  if (!exp) return '';
   const parts = [
     `${exp.position} at ${exp.company}`,
     `Period: ${exp.startDate} - ${exp.endDate || 'Present'}`,
@@ -256,7 +251,77 @@ const buildTopExperience = (profile, parsed) => {
     exp.description ? `Description: ${limitText(exp.description, 400)}` : '',
     Array.isArray(exp.achievements) && exp.achievements.length ? `Achievements: ${exp.achievements.join(', ')}` : ''
   ].filter(Boolean);
-  return parts.join(' | ') || 'Not provided';
+  return parts.join(' | ');
+};
+
+const pickBestLine = (lines, keywords) => {
+  if (!lines || lines.length === 0) return '';
+  if (!keywords || keywords.length === 0) return lines[0];
+  return [...lines]
+    .map(line => ({ line, score: scoreByKeywords(line, keywords) }))
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.line)[0];
+};
+
+const buildTopProject = (profile, parsed, keywords) => {
+  const parsedLines = parsed?.projectsText
+    ? parsed.projectsText.split('\n').map(line => line.trim()).filter(Boolean)
+    : [];
+  if (parsedLines.length > 0) {
+    return pickBestLine(parsedLines, keywords) || 'Not provided';
+  }
+  const projects = Array.isArray(profile.projects) ? profile.projects : [];
+  if (projects.length === 0) return 'Not provided';
+  const best = [...projects]
+    .map(project => ({
+      project,
+      score: scoreByKeywords(buildProjectLine(project), keywords)
+    }))
+    .sort((a, b) => b.score - a.score)[0]?.project;
+  return buildProjectLine(best) || 'Not provided';
+};
+
+const buildTopSkills = (profile, parsed, keywords) => {
+  const parsedLines = parsed?.skillsText
+    ? parsed.skillsText.split('\n').map(line => line.trim()).filter(Boolean)
+    : [];
+  if (parsedLines.length > 0) {
+    const ranked = [...parsedLines]
+      .map(line => ({ line, score: scoreByKeywords(line, keywords) }))
+      .sort((a, b) => b.score - a.score);
+    const top = ranked.filter(item => item.line).slice(0, 3).map(item => item.line);
+    return top.length ? top.join('\n') : parsedLines.slice(0, 3).join('\n');
+  }
+  const skillCategories = Array.isArray(profile.skillCategories) ? profile.skillCategories : [];
+  if (skillCategories.length > 0) {
+    const lines = skillCategories.map(category => {
+      const items = (category.skills || []).join(', ');
+      return `${category.category}: ${items}${category.description ? ` — ${category.description}` : ''}`;
+    });
+    const ranked = [...lines]
+      .map(line => ({ line, score: scoreByKeywords(line, keywords) }))
+      .sort((a, b) => b.score - a.score);
+    return ranked.slice(0, 3).map(item => item.line).join('\n');
+  }
+  return profile.skills?.join(', ') || 'Not provided';
+};
+
+const buildTopExperience = (profile, parsed, keywords) => {
+  const parsedLines = parsed?.experienceText
+    ? parsed.experienceText.split('\n').map(line => line.trim()).filter(Boolean)
+    : [];
+  if (parsedLines.length > 0) {
+    return pickBestLine(parsedLines, keywords) || 'Not provided';
+  }
+  const experiences = Array.isArray(profile.experience) ? profile.experience : [];
+  if (experiences.length === 0) return 'Not provided';
+  const best = [...experiences]
+    .map(exp => ({
+      exp,
+      score: scoreByKeywords(buildExperienceLine(exp), keywords)
+    }))
+    .sort((a, b) => b.score - a.score)[0]?.exp;
+  return buildExperienceLine(best) || 'Not provided';
 };
 
 exports.handler = async (event) => {
@@ -542,9 +607,10 @@ function generateCoverLetterPrompt(userProfile, jobApplication) {
   const jobParsed = jobApplication.parsedJob || {};
   const jobText = jobParsed.jobSummary || limitText(jobApplication.notes || jobApplication.jobDescription || jobApplication.requirements, MAX_JOB_TEXT_CHARS);
   const role = jobApplication.position || 'Software Developer';
-  const topProject = buildTopProject(userProfile, parsed);
-  const topSkills = buildTopSkills(userProfile, parsed);
-  const topExperience = buildTopExperience(userProfile, parsed);
+  const jobKeywords = getJobKeywords(jobApplication);
+  const topProject = buildTopProject(userProfile, parsed, jobKeywords);
+  const topSkills = buildTopSkills(userProfile, parsed, jobKeywords);
+  const topExperience = buildTopExperience(userProfile, parsed, jobKeywords);
 
   return `You are a professional cover letter writer.
 
