@@ -735,21 +735,46 @@ function generateCVPrompt(userProfile, jobApplication, haikuPrep) {
         `${(vol.highlights || []).join(' | ')}`
       ].join('\n')).join('\n') || 'Not provided');
 
-  return `You are a professional CV writer. Return ONLY valid JSON (no markdown, no code fences, no extra text).
+  return `You are a professional CV writer. Return ONLY valid JSON matching the schema exactly. No markdown, no code fences, no commentary.
 
-TASK:
-- Create a CV tailored to the role using ONLY the provided data.
-- Use the schema below exactly. Omit fields by using empty strings or empty arrays if no data.
-- Do NOT invent employers, dates, locations, degrees, skills, or achievements.
-- Avoid generic phrases (e.g., "passionate", "hard-working", "team player", "strong background").
-- Include at least two of the top keywords in the summary and/or experience bullets.
-- Keep output compact to avoid truncation:
-  - Max 4 experience entries
-  - Max 4 projects
-  - Max 8 skill categories
-  - Max 4 bullets per entry
-- All string values must be single-line; do NOT include raw line breaks inside strings.
-- Summary must be 3–4 sentences max.
+RULES:
+- Use ONLY the provided data.
+- Do NOT invent roles, employers, projects, dates, locations, degrees, certifications, skills, or achievements.
+- Keep all string values single-line only.
+- Avoid generic phrases like "passionate", "hard-working", "team player", "strong background", "results-driven", "highly motivated".
+- Use direct, specific, professional language.
+
+SECTION RULES:
+- experience = paid/professional work only (employment, freelance, contract, project-based professional roles)
+- volunteer = unpaid/community roles only
+- projects = projects only, not jobs or volunteer roles
+- education = education only
+- certifications = certifications only
+- skills = grouped skill categories only
+- Never place the same item in multiple sections.
+- Never place volunteer roles in experience.
+- Never place projects in experience.
+
+QUALITY RULES:
+- Summary: 3-4 sentences max.
+- Include at least 2 relevant job keywords in the summary and/or experience bullets.
+- Use the strongest, most relevant entries first.
+- Bullets should be concise, action-oriented, and non-repetitive.
+- Max 4 bullets per entry.
+
+LIMITS:
+- Max 4 experience entries
+- Max 4 project entries
+- Max 8 skill categories
+- Max 3 education entries
+- Max 6 certifications
+- Max 6 languages
+
+Before returning JSON, check:
+- no duplicate entries across sections
+- volunteer not included in experience
+- projects not included in experience
+- output is valid JSON
 
 OUTPUT JSON SCHEMA:
 {
@@ -854,34 +879,71 @@ function generateCoverLetterPrompt(userProfile, jobApplication, haikuPrep) {
 
   return `You are a professional cover letter writer.
 
-Write a concise, high-quality cover letter.
+Return ONLY the cover letter text. No explanations or formatting.
+
+GOAL:
+Write a concise, high-quality cover letter tailored to the role using ONLY the provided input.
 
 STRICT RULES:
-- Use ONLY the provided information
-- Do NOT invent any skills or experience
-- MUST include the project mentioned
-- MUST mention backend, API, or application development
-- Avoid generic phrases (e.g. "passionate", "team player")
-- Do NOT use: "strong background", "passionate", "hard-working", "team player"
-- Keep it 180–250 words
-- Use a confident and direct tone
+- Use ONLY provided data
+- Do NOT invent or assume experience, skills, or responsibilities
+- Do NOT assume technical background unless clearly stated
+- Avoid generic phrases (e.g., "passionate", "team player", "hard-working", "strong background")
+- Keep tone confident, clear, and professional
+- Length: 180–220 words
+
+ACCURACY RULES:
+- Only describe scale or impact if explicitly supported
+- Do NOT imply size, users, or business value without evidence
+- Prefer describing what was done, not how important it sounds
+
+LANGUAGE RULES:
+- Use direct, action-based language (built, implemented, designed, developed, managed)
+- Do NOT use weak phrases (e.g., "prepared to", "familiar with", "interested in")
+- Do NOT describe future intentions
+- Prefer precise and minimal statements over impressive but uncertain ones
 
 STRUCTURE:
-1. Opening: mention the role and positioning as a Software Developer
-2. Main: describe the project and what was built (tech + purpose)
-3. Skills: align with backend, APIs, and development work
-4. Closing: short and confident
 
-MANDATORY:
-- Include the project in the second paragraph
-- Include at least one sentence about APIs or backend
-- Rewrite the cover letter to be more specific, remove generic phrases, and improve clarity
+1. Opening:
+- Start with a natural, engaging statement about how the candidate works or approaches tasks
+- Avoid "I am writing to apply"
+- Keep it human, specific, and concise (1–2 sentences)
+- Then connect to the role and company
+
+2. Experience / Project:
+- Describe ONE relevant experience or project
+- Focus on real actions and responsibilities
+- Include what was built or done and why it matters
+
+3. Alignment:
+- Connect experience to role requirements
+- Highlight relevant skills without repetition
+
+4. Closing:
+- Short, direct, confident
+- No generic phrasing
+
+IMPLEMENTATION FOCUS:
+- Briefly explain how the system or work functions in practice
+- Describe how tasks, data, or workflows are handled
+- Keep it concise, not overly technical
+
+FINAL CHECK:
+- No invented or exaggerated content
+- No repeated ideas
+- No generic or weak phrases
+- Within 180–220 words
+
+Write the cover letter now.
 
 INPUT:
 Role: ${role}
 
-Project:
-${topProject}
+Company: ${jobApplication.company || 'Not provided'}
+
+Relevant Experience / Project:
+${topProject || topExperience}
 
 Skills:
 ${topSkills}
@@ -891,7 +953,6 @@ ${topExperience}
 
 Additional Context:
 - Summary: ${summary || 'Not provided'}
-- Company: ${jobApplication.company || 'Not provided'}
 - Job Description: ${jobText}
 
 OUTPUT:
@@ -909,59 +970,47 @@ function sanitizeFileName(name) {
 // Generate CV PDF with proper formatting
 async function generateCVPDF(userProfile, jobApplication, cvData) {
   const PDFDocument = require('pdfkit');
-  
+
   return new Promise((resolve, reject) => {
     const chunks = [];
-    const doc = new PDFDocument({ 
+    const doc = new PDFDocument({
       margin: 50,
       size: 'LETTER'
     });
-    
+
     doc.on('data', chunk => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
-    
-    // Layout constants
-    const headerY = 50;
-    const pageWidth = doc.page.width;
+
     const margin = 50;
-    const contentWidth = pageWidth - (margin * 2);
-    
-    // Header (centered, 3 lines like profile standard)
-    const nameY = headerY;
-    const nameText = (userProfile.fullName || '').toUpperCase();
-    doc.fontSize(18)
-       .font('Helvetica-Bold')
-       .text(nameText, margin, nameY, { align: 'center', width: contentWidth });
-
-    doc.fontSize(9).font('Helvetica');
-    const contactLine = [];
-    if (userProfile.phone) contactLine.push(userProfile.phone.replace(/[\s-()]/g, ''));
-    if (userProfile.email) contactLine.push(userProfile.email);
-    if (userProfile.address) contactLine.push(userProfile.address);
-
-    const linkLine = [];
-    if (userProfile.portfolioUrl) linkLine.push(userProfile.portfolioUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''));
-    if (userProfile.linkedinUrl) linkLine.push(userProfile.linkedinUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''));
-    if (userProfile.githubUrl) linkLine.push(userProfile.githubUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''));
-
-    const contactCenterY = nameY + 20;
-    if (contactLine.length > 0) {
-      doc.text(contactLine.join(' | '), margin, contactCenterY, { align: 'center', width: contentWidth });
-    }
-    if (linkLine.length > 0) {
-      doc.text(linkLine.join(' | '), margin, contactCenterY + 12, { align: 'center', width: contentWidth });
-    }
-
-    // Horizontal line
-    doc.moveTo(margin, contactCenterY + 22)
-       .lineTo(pageWidth - margin, contactCenterY + 22)
-       .stroke();
-    
+    const pageWidth = doc.page.width;
+    const contentWidth = pageWidth - margin * 2;
     const safeArray = (value) => (Array.isArray(value) ? value : []);
     const data = typeof cvData === 'object' && cvData ? cvData : {};
 
-    const ensureSpace = (heightNeeded) => {
+    const LAYOUT = {
+      sectionAfterTitle: 8,
+      sectionAfterBlock: 6,
+      entryTitleLineHeight: 10,
+      entrySublineGap: 4,
+      entryAfterBlock: 6,
+      bulletIndent: 12,
+      bulletGap: 2,
+      paragraphGap: 4,
+      skillLabelGap: 3,
+      skillBlockGap: 4,
+    };
+
+    const normalizeTextSpacing = (text) => (
+      String(text || '')
+        .replace(/,+/g, ',')
+        .replace(/\s*,\s*/g, ', ')
+        .replace(/\s+/g, ' ')
+        .replace(/,\s*$/g, '')
+        .trim()
+    );
+
+    const ensureSpace = (heightNeeded = 0) => {
       const bottomLimit = doc.page.height - margin;
       if (doc.y + heightNeeded > bottomLimit) {
         doc.addPage();
@@ -969,23 +1018,34 @@ async function generateCVPDF(userProfile, jobApplication, cvData) {
       }
     };
 
+    const setBodyFont = () => doc.font('Helvetica').fontSize(10);
+    const setBoldFont = (size = 10) => doc.font('Helvetica-Bold').fontSize(size);
+
+    const textHeight = (text, width = contentWidth, font = 'Helvetica', fontSize = 10) => {
+      doc.font(font).fontSize(fontSize);
+      return doc.heightOfString(String(text || ''), { width });
+    };
+
     const wrapText = (text, maxWidth, font = 'Helvetica', fontSize = 10) => {
       if (!text) return [];
       doc.font(font).fontSize(fontSize);
+
       const words = String(text).split(/\s+/).filter(Boolean);
       if (words.length === 0) return [];
+
       const lines = [];
       let current = '';
+
       words.forEach(word => {
         const candidate = current ? `${current} ${word}` : word;
-        const width = doc.widthOfString(candidate);
-        if (width <= maxWidth || !current) {
+        if (doc.widthOfString(candidate) <= maxWidth || !current) {
           current = candidate;
         } else {
           lines.push(current);
           current = word;
         }
       });
+
       if (current) lines.push(current);
       return lines;
     };
@@ -998,203 +1058,306 @@ async function generateCVPDF(userProfile, jobApplication, cvData) {
       return start || end || '';
     };
 
-    const buildEntry = (title, subline, date, bullets) => ({
+    const buildEntry = (title, subline = '', date = '', bullets = []) => ({
       title: title || '',
       subline: subline || '',
       date: date || '',
-      bullets: safeArray(bullets).filter(Boolean)
+      bullets: safeArray(bullets).map(normalizeTextSpacing).filter(Boolean),
     });
 
-    // Single source of truth: vertical rhythm matches PROJECTS (renderEntry + renderBullets).
-    const LAYOUT = {
-      sectionAfterTitle: 6,
-      entryTitleLineHeight: 10,
-      entrySublineDy: 8,
-      bulletLineHeight: 10,
-      bulletAdvanceTrim: 2,
-      bulletEnsureExtra: 2,
-      bulletLeftIndent: 12,
-      afterBulletList: 1,
-      betweenEntries: 2,
-      summaryParagraphGap: 1,
-      skillLabelToItems: 5,
-      skillItemsBottomPad: 3,
+    const addGap = (value = 0) => {
+      doc.y += value;
     };
-    const normalizeTextSpacing = (text) => (
-      String(text || '')
-        .replace(/,([^\s])/g, ', $1')
-        .replace(/\s+/g, ' ')
-        .trim()
-    );
+
+    const renderHeader = () => {
+      const headerY = 50;
+      const nameText = (userProfile.fullName || '').toUpperCase();
+
+      setBoldFont(18);
+      doc.text(nameText, margin, headerY, { align: 'center', width: contentWidth });
+
+      const contactLine = [];
+      if (userProfile.phone) contactLine.push(userProfile.phone.replace(/[\s-()]/g, ''));
+      if (userProfile.email) contactLine.push(userProfile.email);
+      if (userProfile.address) contactLine.push(userProfile.address);
+
+      const linkLine = [];
+      if (userProfile.portfolioUrl) linkLine.push(userProfile.portfolioUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''));
+      if (userProfile.linkedinUrl) linkLine.push(userProfile.linkedinUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''));
+      if (userProfile.githubUrl) linkLine.push(userProfile.githubUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''));
+
+      const contactY = headerY + 20;
+      setBodyFont();
+
+      if (contactLine.length > 0) {
+        doc.text(contactLine.join(' | '), margin, contactY, { align: 'center', width: contentWidth });
+      }
+
+      if (linkLine.length > 0) {
+        doc.text(linkLine.join(' | '), margin, contactY + 12, { align: 'center', width: contentWidth });
+      }
+
+      doc.moveTo(margin, contactY + 22)
+        .lineTo(pageWidth - margin, contactY + 22)
+        .stroke();
+
+      doc.y = contactY + 30;
+    };
+
     const renderSectionTitle = (title) => {
-      const titleHeight = doc.heightOfString(title, { width: contentWidth });
-      ensureSpace(titleHeight + LAYOUT.sectionAfterTitle);
-      doc.font('Helvetica-Bold').fontSize(10).text(title, margin, doc.y);
-      doc.y += LAYOUT.sectionAfterTitle;
-      doc.font('Helvetica').fontSize(10);
+      const height = textHeight(title, contentWidth, 'Helvetica-Bold', 10);
+      ensureSpace(height + LAYOUT.sectionAfterTitle);
+      setBoldFont(10);
+      doc.text(title, margin, doc.y, { width: contentWidth });
+      addGap(LAYOUT.sectionAfterTitle);
+      setBodyFont();
     };
 
-    const renderEntry = (entry, { boldTitle = true, boldSubline = true } = {}) => {
-      const titleFont = boldTitle ? 'Helvetica-Bold' : 'Helvetica';
-      const sublineFont = boldSubline ? 'Helvetica-Bold' : 'Helvetica';
-      const dateFont = 'Helvetica-Bold';
-      const gap = entry.date ? 8 : 0;
+    const renderParagraph = (text, { gapAfter = 0 } = {}) => {
+      const cleaned = normalizeTextSpacing(text);
+      if (!cleaned) return;
 
-      doc.font(dateFont).fontSize(9);
-      const dateWidth = entry.date ? doc.widthOfString(entry.date) : 0;
-
-      const titleWidth = Math.max(80, contentWidth - dateWidth - gap);
-      const titleLines = wrapText(normalizeTextSpacing(entry.title), titleWidth, titleFont, 10);
-      const titleHeight = titleLines.length * LAYOUT.entryTitleLineHeight;
-      const subHeight = entry.subline ? doc.heightOfString(entry.subline, { width: contentWidth }) : 0;
-      ensureSpace(titleHeight + subHeight + LAYOUT.betweenEntries);
-
-      const startY = doc.y;
-      // Line 1: title (left) + date (right, same line)
-      doc.font(titleFont)
-        .fontSize(10)
-        .text(titleLines, margin, startY, { width: titleWidth, align: 'left' });
-      if (entry.date) {
-        doc.font(dateFont)
-          .fontSize(9)
-          .text(entry.date, margin, startY, { width: contentWidth, align: 'right', lineBreak: false });
-      }
-      doc.y = startY + titleHeight;
-
-      // Line 2: location/company (left)
-      if (entry.subline) {
-        doc.font(sublineFont).fontSize(10).text(normalizeTextSpacing(entry.subline), margin, doc.y);
-        doc.y += LAYOUT.entrySublineDy;
-      }
-
-      if (entry.bullets && entry.bullets.length > 0) {
-        renderBullets(entry.bullets);
-      }
-      doc.y += LAYOUT.betweenEntries;
+      const height = textHeight(cleaned, contentWidth, 'Helvetica', 10);
+      ensureSpace(height + gapAfter);
+      setBodyFont();
+      doc.text(cleaned, margin, doc.y, { width: contentWidth, align: 'left' });
+      addGap(gapAfter);
     };
 
     const renderBullets = (items) => {
-      const bulletItems = safeArray(items)
-        .map(item => normalizeTextSpacing(item))
-        .filter(Boolean);
-      bulletItems.forEach(item => {
-        const lines = wrapText(`• ${item}`, contentWidth, 'Helvetica', 10);
-        ensureSpace(lines.length * LAYOUT.bulletLineHeight + LAYOUT.bulletEnsureExtra);
-        doc.text(lines, margin + LAYOUT.bulletLeftIndent, doc.y);
-        doc.y += lines.length * LAYOUT.bulletLineHeight - LAYOUT.bulletAdvanceTrim;
-      });
-      doc.y += LAYOUT.afterBulletList;
+      safeArray(items)
+        .map(normalizeTextSpacing)
+        .filter(Boolean)
+        .forEach(item => {
+          const bulletText = `• ${item}`;
+          const height = textHeight(bulletText, contentWidth - LAYOUT.bulletIndent, 'Helvetica', 10);
+          ensureSpace(height + LAYOUT.bulletGap);
+          setBodyFont();
+          doc.text(bulletText, margin + LAYOUT.bulletIndent, doc.y, {
+            width: contentWidth - LAYOUT.bulletIndent,
+            align: 'left'
+          });
+          addGap(LAYOUT.bulletGap);
+        });
     };
 
-    doc.y = contactCenterY + 30;
-    doc.font('Helvetica').fontSize(10);
+    const renderEntry = (entry, { boldTitle = true, boldSubline = false , boldDate = false} = {}) => {
+      const titleFont = boldTitle ? 'Helvetica-Bold' : 'Helvetica';
+      const sublineFont = boldSubline ? 'Helvetica-Bold' : 'Helvetica';
+      const dateFont = boldDate ? 'Helvetica-Bold' : 'Helvetica';
 
-    const summaryText = (data.summary || '').trim();
-    if (summaryText) {
+      setBodyFont();
+      const dateWidth = entry.date ? (() => {
+        doc.font(dateFont).fontSize(10);
+        return doc.widthOfString(entry.date);
+      })() : 0;
+
+      const titleWidth = Math.max(80, contentWidth - dateWidth - (entry.date ? 8 : 0));
+      const titleLines = wrapText(normalizeTextSpacing(entry.title), titleWidth, titleFont, 10);
+      const titleHeight = Math.max(1, titleLines.length) * LAYOUT.entryTitleLineHeight;
+      const sublineHeight = entry.subline ? textHeight(entry.subline, contentWidth, sublineFont, 10) : 0;
+      const bulletHeight = entry.bullets.length
+        ? entry.bullets.reduce((sum, bullet) => (
+            sum + textHeight(`• ${bullet}`, contentWidth - LAYOUT.bulletIndent, 'Helvetica', 10) + LAYOUT.bulletGap
+          ), 0)
+        : 0;
+
+      ensureSpace(titleHeight + sublineHeight + bulletHeight + LAYOUT.entryAfterBlock);
+
+      const startY = doc.y;
+
+      doc.font(titleFont)
+        .fontSize(10)
+        .text(titleLines, margin, startY, { width: titleWidth, align: 'left' });
+
+      if (entry.date) {
+        doc.font(dateFont)
+          .fontSize(9)
+          .text(entry.date, margin, startY, {
+            width: contentWidth,
+            align: 'right',
+            lineBreak: false
+          });
+      }
+
+      doc.y = startY + titleHeight;
+
+      if (entry.subline) {
+        doc.font(sublineFont)
+          .fontSize(10)
+          .text(normalizeTextSpacing(entry.subline), margin, doc.y, { width: contentWidth });
+        addGap(LAYOUT.entrySublineGap);
+      }
+
+      if (entry.bullets.length) {
+        renderBullets(entry.bullets);
+      }
+
+      addGap(LAYOUT.entryAfterBlock);
+    };
+
+    const renderEntriesSection = (title, entries, options = {}) => {
+      if (!entries.length) return;
+      renderSectionTitle(title);
+      entries.forEach(entry => renderEntry(entry, options));
+      addGap(LAYOUT.sectionAfterBlock);
+    };
+
+    const renderSummarySection = (summary) => {
+      const summaryText = String(summary || '').trim();
+      if (!summaryText) return;
+
       renderSectionTitle('PROFESSIONAL SUMMARY');
-      const paragraphs = summaryText.split(/\n\n+/);
+      const paragraphs = summaryText.split(/\n\n+/).map(normalizeTextSpacing).filter(Boolean);
       paragraphs.forEach((paragraph, index) => {
-        const lines = wrapText(normalizeTextSpacing(paragraph), contentWidth, 'Helvetica', 10);
-        ensureSpace(lines.length * LAYOUT.bulletLineHeight + LAYOUT.summaryParagraphGap);
-        doc.text(lines, margin, doc.y);
-        doc.y += lines.length * LAYOUT.bulletLineHeight;
-        console.log ('summary before paragraph gap', doc.y);
-        if (index < paragraphs.length - 1) {
-          doc.y += LAYOUT.summaryParagraphGap;
-          console.log ('summary paragraph gap', doc.y);
+        renderParagraph(paragraph, {
+          gapAfter: index < paragraphs.length - 1 ? LAYOUT.paragraphGap : 0
+        });
+      });
+      addGap(LAYOUT.sectionAfterBlock);
+    };
+
+    const renderSkillsSection = (categories) => {
+      if (!categories.length) return;
+
+      renderSectionTitle('SKILLS');
+
+      categories.forEach((category, index) => {
+        const label = normalizeTextSpacing(category.category);
+        const items = normalizeTextSpacing(category.items);
+
+        const totalHeight =
+          textHeight(label, contentWidth, 'Helvetica-Bold', 10) +
+          LAYOUT.skillLabelGap +
+          textHeight(items, contentWidth, 'Helvetica', 10) +
+          (index < categories.length - 1 ? LAYOUT.skillBlockGap : 0);
+
+        ensureSpace(totalHeight);
+
+        setBoldFont(10);
+        doc.text(label, margin, doc.y, { width: contentWidth });
+        addGap(LAYOUT.skillLabelGap);
+
+        setBodyFont();
+        doc.text(items, margin, doc.y, { width: contentWidth, align: 'left' });
+
+        if (index < categories.length - 1) {
+          addGap(LAYOUT.skillBlockGap);
         }
       });
-      doc.y += LAYOUT.sectionAfterTitle;
-      console.log ('summary after section after title', doc.y);
-    }
 
-    const experienceEntries = safeArray(data.experience).map(exp => {
-      const title = exp?.title || '';
-      const subline = [exp?.company, exp?.location].filter(Boolean).join(', ');
-      const date = formatRange(exp?.startDate, exp?.endDate, !exp?.endDate || exp?.endDate === 'Present');
-      return buildEntry(title, subline, date, exp?.bullets);
-    }).filter(entry => entry.title);
-    if (experienceEntries.length > 0) {
-      renderSectionTitle('EXPERIENCE');
-      experienceEntries.forEach(entry => renderEntry(entry, { boldTitle: true, boldSubline: true }));
-    }
+      addGap(LAYOUT.sectionAfterBlock);
+    };
 
-    const projectEntries = safeArray(data.projects).map(proj => {
-      const title = proj?.year ? `${proj.name} (${proj.year})` : (proj?.name || '');
-      const sublineParts = [];
-      if (proj?.description) sublineParts.push(proj.description);
-      if (proj?.technologies?.length) sublineParts.push(`Technologies: ${proj.technologies.join(', ')}`);
-      if (proj?.url) sublineParts.push(`Live Demo: ${proj.url}`);
-      return buildEntry(title, sublineParts.shift() || '', '', [
-        ...safeArray(proj?.bullets),
-        ...sublineParts
-      ]);
-    }).filter(entry => entry.title);
-    if (projectEntries.length > 0) {
-      renderSectionTitle('PROJECTS');
-      projectEntries.forEach(entry => renderEntry(entry, { boldTitle: true, boldSubline: true }));
-    }
-
-    const skillCategories = safeArray(data.skills).map(item => ({
-      category: item?.category || '',
-      items: safeArray(item?.items).filter(Boolean).join(', ')
-    })).filter(item => item.category && item.items);
-    if (skillCategories.length > 0) {
-      renderSectionTitle('SKILLS');
-      skillCategories.forEach(category => {
-        const labelHeight = doc.heightOfString(category.category, { width: contentWidth });
-        const itemsHeight = doc.heightOfString(category.items, { width: contentWidth });
-        ensureSpace(labelHeight + itemsHeight + LAYOUT.skillLabelToItems + LAYOUT.skillItemsBottomPad);
-        doc.font('Helvetica-Bold').fontSize(10).text(category.category, margin, doc.y);
-        doc.y += LAYOUT.skillLabelToItems;
-        doc.font('Helvetica').fontSize(10).text(category.items, margin, doc.y);
-        doc.y += itemsHeight + LAYOUT.skillItemsBottomPad;
-      });
-      doc.y += LAYOUT.betweenEntries;
-    }
-
-    const educationEntries = safeArray(data.education).map(edu => {
-      const titleParts = [edu?.degree, edu?.field].filter(Boolean);
-      const title = titleParts.join(', ');
-      const subline = [edu?.institution, edu?.location].filter(Boolean).join(', ');
-      const date = formatRange(edu?.startDate, edu?.endDate, edu?.current);
-      return buildEntry(title, subline, date, []);
-    }).filter(entry => entry.title);
-    if (educationEntries.length > 0) {
-      renderSectionTitle('EDUCATION');
-      educationEntries.forEach(entry => renderEntry(entry, { boldTitle: false, boldSubline: false }));
-    }
-
-    const certEntries = safeArray(data.certifications).map(cert => {
-      const title = cert?.code ? `${cert.name} (${cert.code})` : (cert?.name || '');
-      const subline = cert?.issuer || '';
-      const date = formatDateToken(cert?.issueDate || '');
-      return buildEntry(title, subline, date, []);
-    }).filter(entry => entry.title);
-    if (certEntries.length > 0) {
-      renderSectionTitle('CERTIFICATIONS');
-      certEntries.forEach(entry => renderEntry(entry, { boldTitle: true, boldSubline: true }));
-    }
-
-    const volunteerEntries = safeArray(data.volunteer).map(vol => {
-      const title = vol?.role || '';
-      const subline = [vol?.organization, vol?.location].filter(Boolean).join(', ');
-      const date = formatRange(vol?.startDate, vol?.endDate, !vol?.endDate || vol?.endDate === 'Present');
-      return buildEntry(title, subline, date, vol?.bullets);
-    }).filter(entry => entry.title);
-    if (volunteerEntries.length > 0) {
-      renderSectionTitle('VOLUNTEER EXPERIENCE');
-      volunteerEntries.forEach(entry => renderEntry(entry, { boldTitle: true, boldSubline: true }));
-    }
-
-    const languageItems = safeArray(data.languages)
-      .map(lang => [lang?.language, lang?.proficiency].filter(Boolean).join(' — '))
-      .filter(Boolean);
-    if (languageItems.length > 0) {
+    const renderLanguagesSection = (items) => {
+      if (!items.length) return;
       renderSectionTitle('LANGUAGES');
-      renderBullets(languageItems);
-    }
-    
+      renderBullets(items);
+    };
+
+    const prepareExperienceEntries = () =>
+      safeArray(data.experience)
+        .map(exp => buildEntry(
+          exp?.title || '',
+          [exp?.company, exp?.location].filter(Boolean).join(', '),
+          formatRange(exp?.startDate, exp?.endDate, !exp?.endDate || exp?.endDate === 'Present'),
+          exp?.bullets
+        ))
+        .filter(entry => entry.title);
+
+    const prepareProjectEntries = () =>
+      safeArray(data.projects)
+        .map(proj => {
+          const title = proj?.year ? `${proj.name} (${proj.year})` : (proj?.name || '');
+          const sublineParts = [];
+          if (proj?.description) sublineParts.push(proj.description);
+          if (proj?.technologies?.length) sublineParts.push(`Technologies: ${proj.technologies.join(', ')}`);
+          if (proj?.url) sublineParts.push(`Live Demo: ${proj.url}`);
+
+          return buildEntry(
+            title,
+            sublineParts.shift() || '',
+            '',
+            [...safeArray(proj?.bullets), ...sublineParts]
+          );
+        })
+        .filter(entry => entry.title);
+
+    const prepareEducationEntries = () =>
+      safeArray(data.education)
+        .map(edu => buildEntry(
+          [edu?.degree, edu?.field].filter(Boolean).join(', '),
+          [edu?.institution, edu?.location].filter(Boolean).join(', '),
+          formatRange(edu?.startDate, edu?.endDate, edu?.current),
+          []
+        ))
+        .filter(entry => entry.title);
+
+    const prepareCertificationEntries = () =>
+      safeArray(data.certifications)
+        .map(cert => buildEntry(
+          cert?.code ? `${cert.name} (${cert.code})` : (cert?.name || ''),
+          '',
+          formatDateToken(cert?.issueDate || ''),
+          []
+        ))
+        .filter(entry => entry.title);
+
+    const prepareVolunteerEntries = () =>
+      safeArray(data.volunteer)
+        .map(vol => buildEntry(
+          vol?.role || '',
+          [vol?.organization, vol?.location].filter(Boolean).join(', '),
+          formatRange(vol?.startDate, vol?.endDate, !vol?.endDate || vol?.endDate === 'Present'),
+          vol?.bullets
+        ))
+        .filter(entry => entry.title);
+
+    const prepareSkillCategories = () =>
+      safeArray(data.skills)
+        .map(item => ({
+          category: item?.category || '',
+          items: safeArray(item?.items).filter(Boolean).join(', ')
+        }))
+        .filter(item => item.category && item.items);
+
+    const prepareLanguageItems = () =>
+      safeArray(data.languages)
+        .map(lang => [lang?.language, lang?.proficiency].filter(Boolean).join(' — '))
+        .filter(Boolean);
+
+    renderHeader();
+    renderSummarySection(data.summary);
+
+    renderEntriesSection('EXPERIENCE', prepareExperienceEntries(), {
+      boldTitle: true,
+      boldSubline: false,
+    });
+
+    renderEntriesSection('PROJECTS', prepareProjectEntries(), {
+      boldTitle: true,
+      boldSubline: false,
+    });
+
+    renderSkillsSection(prepareSkillCategories());
+
+    renderEntriesSection('EDUCATION', prepareEducationEntries(), {
+      boldTitle: true,
+      boldSubline: false,
+    });
+
+    renderEntriesSection('CERTIFICATIONS', prepareCertificationEntries(), {
+      boldTitle: true,
+      boldSubline: false,
+    });
+
+    renderEntriesSection('VOLUNTEER EXPERIENCE', prepareVolunteerEntries(), {
+      boldTitle: true,
+      boldSubline: false,
+    });
+
+    renderLanguagesSection(prepareLanguageItems());
+
     doc.end();
   });
 }
@@ -1202,19 +1365,18 @@ async function generateCVPDF(userProfile, jobApplication, cvData) {
 // Generate Cover Letter PDF
 async function generateCoverLetterPDF(userProfile, jobApplication, generatedText) {
   const PDFDocument = require('pdfkit');
-  
+
   return new Promise((resolve, reject) => {
     const chunks = [];
-    const doc = new PDFDocument({ 
+    const doc = new PDFDocument({
       margin: 50,
       size: 'LETTER'
     });
-    
+
     doc.on('data', chunk => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
-    
-    // Header (match cover template)
+
     const margin = 50;
     const pageWidth = doc.page.width;
     const contentWidth = pageWidth - margin * 2;
@@ -1223,9 +1385,32 @@ async function generateCoverLetterPDF(userProfile, jobApplication, generatedText
     const leftColumnWidth = contentWidth - rightColumnWidth;
     const rightColumnX = margin + leftColumnWidth;
 
+    const LAYOUT = {
+      afterHeaderLine: 12,
+      afterDate: 76,
+      afterSubject: 14,
+      afterSalutation: 14,
+      paragraphGap: 10,
+      closingGap: 16,
+      signatureGap: 8,
+      bodyLineGap: 2,
+    };
+
+    const addGap = (y, gap) => y + gap;
+
+    const normalizeParagraphs = (text) =>
+      String(text || '')
+        .split(/\n{2,}/)
+        .map(p => p.replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+
+    // Header
     doc.font('Helvetica-Bold')
       .fontSize(16)
-      .text(userProfile.fullName || '', margin, headerTop, { width: leftColumnWidth, align: 'left' });
+      .text(userProfile.fullName || '', margin, headerTop, {
+        width: leftColumnWidth,
+        align: 'left'
+      });
 
     const line1Parts = [];
     if (userProfile.address) line1Parts.push(userProfile.address);
@@ -1233,50 +1418,111 @@ async function generateCoverLetterPDF(userProfile, jobApplication, generatedText
 
     const line2Parts = [];
     if (userProfile.phone) line2Parts.push(formatPhone(userProfile.phone));
-    if (userProfile.linkedinUrl) line2Parts.push(userProfile.linkedinUrl.replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/^www\./, ''));
-    if (userProfile.portfolioUrl) line2Parts.push(userProfile.portfolioUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''));
+    if (userProfile.linkedinUrl) {
+      line2Parts.push(
+        userProfile.linkedinUrl
+          .replace(/^https?:\/\//, '')
+          .replace(/\/$/, '')
+          .replace(/^www\./, '')
+      );
+    }
+    if (userProfile.portfolioUrl) {
+      line2Parts.push(
+        userProfile.portfolioUrl
+          .replace(/^https?:\/\//, '')
+          .replace(/\/$/, '')
+      );
+    }
 
     const rightLineHeight = 11;
     doc.font('Helvetica').fontSize(9);
+
     if (line1Parts.length > 0) {
-      doc.text(line1Parts.join(' | '), rightColumnX, headerTop + 2, { width: rightColumnWidth, align: 'right' });
+      doc.text(line1Parts.join(' | '), rightColumnX, headerTop + 2, {
+        width: rightColumnWidth,
+        align: 'right'
+      });
     }
+
     if (line2Parts.length > 0) {
-      doc.text(line2Parts.join(' | '), rightColumnX, headerTop + 2 + rightLineHeight, { width: rightColumnWidth, align: 'right' });
+      doc.text(line2Parts.join(' | '), rightColumnX, headerTop + 2 + rightLineHeight, {
+        width: rightColumnWidth,
+        align: 'right'
+      });
     }
 
     const lineY = headerTop + 28;
     doc.moveTo(margin, lineY).lineTo(pageWidth - margin, lineY).stroke();
 
-    // Date (left under header line)
+    // Start flowing content with one y variable
+    let y = lineY + LAYOUT.afterHeaderLine;
+
+    // Date
     const today = new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
-    doc.font('Helvetica').fontSize(10).text(today, margin, lineY + 12);
 
-    // Subject line
+    doc.font('Helvetica').fontSize(10).text(today, margin, y, {
+      width: contentWidth,
+      align: 'left'
+    });
+    y = doc.y;
+    y = addGap(y, LAYOUT.afterDate);
+
+    // Subject
     const subjectText = `Subject: Application — ${jobApplication.position || 'Position'}`;
-    doc.font('Helvetica').fontSize(10).text(subjectText, margin, lineY + 74, { width: contentWidth, align: 'left' });
+    doc.font('Helvetica').fontSize(10).text(subjectText, margin, y, {
+      width: contentWidth,
+      align: 'left'
+    });
+    y = doc.y;
+    y = addGap(y, LAYOUT.afterSubject);
 
     // Salutation
-    doc.font('Helvetica').fontSize(10).text(`Dear ${jobApplication.contactName || 'Hiring Team'},`, margin, lineY + 96);
-    
-    // Body
-    doc.fontSize(11).text(generatedText, margin, lineY + 116, {
-      width: contentWidth,
-      align: 'left',
-      lineGap: 5
+    doc.font('Helvetica').fontSize(10).text(
+      `Dear ${jobApplication.contactName || 'Hiring Team'},`,
+      margin,
+      y,
+      { width: contentWidth, align: 'left' }
+    );
+    y = doc.y;
+    y = addGap(y, LAYOUT.afterSalutation);
+
+    // Body paragraphs
+    const paragraphs = normalizeParagraphs(generatedText);
+    doc.font('Helvetica').fontSize(11);
+
+    paragraphs.forEach((paragraph, index) => {
+      doc.text(paragraph, margin, y, {
+        width: contentWidth,
+        align: 'left',
+        lineGap: LAYOUT.bodyLineGap
+      });
+      y = doc.y;
+
+      if (index < paragraphs.length - 1) {
+        y = addGap(y, LAYOUT.paragraphGap);
+      }
     });
-    
+
     // Closing
-    doc.moveDown(2);
-    doc.text('Sincerely,', margin);
-    doc.moveDown();
-    doc.text(userProfile.fullName, margin);
-    
+    y = addGap(y, LAYOUT.closingGap);
+
+    doc.font('Helvetica').fontSize(10).text('Sincerely,', margin, y, {
+      width: contentWidth,
+      align: 'left'
+    });
+
+    y = doc.y;
+    y = addGap(y, LAYOUT.signatureGap);
+
+    doc.text(userProfile.fullName || '', margin, y, {
+      width: contentWidth,
+      align: 'left'
+    });
+
     doc.end();
   });
 }
-
