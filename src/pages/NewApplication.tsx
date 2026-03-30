@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { HiPlusCircle, HiX, HiDocument, HiCloudUpload, HiClipboardCheck, HiInformationCircle, HiDownload } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
 import { createApplication, getUploadUrl, uploadFileToS3, deleteFile, getProfile } from '../utils/api';
+import { getTodayDateLocalISO } from '../utils/date';
 import type { CreateApplicationInput, DocumentVersion } from '../types/application';
 import './NewApplication.css';
 
@@ -25,7 +26,7 @@ export default function NewApplication() {
     company: '',
     position: '',
     status: 'applied', // Always 'applied' for new applications
-    appliedDate: new Date().toISOString().split('T')[0],
+    appliedDate: getTodayDateLocalISO(),
     location: '',
     jobUrl: '',
     contactEmail: '',
@@ -116,7 +117,7 @@ export default function NewApplication() {
       .substring(0, 50); // Limit length
     
     // Get current date in YYYY-MM-DD format
-    const date = new Date().toISOString().split('T')[0];
+    const date = getTodayDateLocalISO();
     
     // Generate new file name
     const prefix = type === 'cv' ? 'CV' : 'CoverLetter';

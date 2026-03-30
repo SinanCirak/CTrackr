@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { HiDocument, HiDownload, HiSparkles, HiArrowLeft, HiCheckCircle, HiXCircle } from 'react-icons/hi';
 import { getApplication } from '../utils/api';
+import { formatDateOnlyForDisplay } from '../utils/date';
 import type { JobApplication } from '../types/application';
 import type { UserProfile } from '../types/user';
 import './GenerateDocuments.css';
@@ -197,7 +198,7 @@ export default function GenerateDocuments() {
           </div>
           <div className="info-item">
             <span className="info-label">Applied Date</span>
-            <span className="info-value">{new Date(application.appliedDate).toLocaleDateString()}</span>
+            <span className="info-value">{formatDateOnlyForDisplay(application.appliedDate)}</span>
           </div>
         </div>
       </div>

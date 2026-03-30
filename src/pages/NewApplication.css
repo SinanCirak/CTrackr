@@ -120,6 +120,13 @@
   transition: all 0.2s;
 }
 
+.form-group input[type="date"],
+.form-group input[type="time"] {
+  min-height: 44px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
@@ -440,6 +447,11 @@
   .form-actions-buttons .btn {
     flex: 1;
     justify-content: center;
+  }
+
+  .form-group input[type="date"],
+  .form-group input[type="time"] {
+    font-size: 16px;
   }
 }
 

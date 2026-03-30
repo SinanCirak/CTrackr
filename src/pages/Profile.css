@@ -102,6 +102,12 @@
   font-family: inherit;
 }
 
+.form-group input[type="date"] {
+  min-height: 44px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
@@ -595,6 +601,10 @@
 
   .form-actions .btn {
     width: 100%;
+  }
+
+  .form-group input[type="date"] {
+    font-size: 16px;
   }
 
   .modal-content {

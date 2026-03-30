@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { HiArrowLeft, HiPencil, HiTrash, HiX, HiCheck, HiLocationMarker, HiCalendar, HiCurrencyDollar, HiLink, HiMail, HiUser, HiDocument, HiDownload, HiClock, HiVideoCamera } from 'react-icons/hi';
 import { getApplication, updateApplication, deleteApplication, getProfile, deleteFile } from '../utils/api';
+import { formatDateOnlyForDisplay } from '../utils/date';
 import type { JobApplication, UpdateApplicationInput, DocumentVersion } from '../types/application';
 import { useAuth } from '../contexts/AuthContext';
 import './ApplicationDetail.css';
@@ -425,7 +426,7 @@ export default function ApplicationDetail() {
                     <HiCalendar className="label-icon" />
                     Applied Date
                   </span>
-                  <span className="value">{new Date(application.appliedDate).toLocaleDateString()}</span>
+                  <span className="value">{formatDateOnlyForDisplay(application.appliedDate)}</span>
                 </div>
                 {application.interviewDate && (
                   <>
@@ -434,7 +435,7 @@ export default function ApplicationDetail() {
                         <HiCalendar className="label-icon" />
                         Interview Date
                       </span>
-                      <span className="value">{new Date(application.interviewDate).toLocaleDateString()}</span>
+                      <span className="value">{formatDateOnlyForDisplay(application.interviewDate)}</span>
                     </div>
                     {application.interviewTime && (
                       <div className="detail-item">
@@ -473,7 +474,7 @@ export default function ApplicationDetail() {
                       <HiCalendar className="label-icon" />
                       Offer Date
                     </span>
-                    <span className="value">{new Date(application.offerDate).toLocaleDateString()}</span>
+                    <span className="value">{formatDateOnlyForDisplay(application.offerDate)}</span>
                   </div>
                 )}
                 {application.location && (

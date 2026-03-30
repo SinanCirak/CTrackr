@@ -1,15 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { HiPlusCircle, HiLocationMarker, HiCalendar, HiBriefcase, HiClipboardList, HiChartBar, HiChevronDown, HiDocument } from 'react-icons/hi';
+import { HiPlusCircle, HiLocationMarker, HiCalendar, HiBriefcase, HiChevronDown, HiDocument } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
 import { listApplications, updateApplication } from '../utils/api';
+import { dateOnlyToBoundaryMs, formatDateOnlyForDisplay } from '../utils/date';
 import type { JobApplication, ApplicationStatus } from '../types/application';
 import './Applications.css';
 
 export default function Applications() {
+  const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
   const { user } = useAuth();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [staleCache, setStaleCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,10 +21,55 @@ export default function Applications() {
   const [dateTo, setDateTo] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [openStatusMenu, setOpenStatusMenu] = useState<string | null>(null);
+  const isIOS = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
+    return /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }, []);
+
+  const userId = useMemo(
+    () => user?.userId || (user as any)?.sub || (user as any)?.username,
+    [user]
+  );
+
+  const getCacheKey = (id: string) => `applications_cache_${id}`;
 
   useEffect(() => {
-    loadApplications();
-  }, [user]);
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
+    const cacheRaw = localStorage.getItem(getCacheKey(userId));
+    if (cacheRaw) {
+      try {
+        const parsedCache = JSON.parse(cacheRaw) as
+          | JobApplication[]
+          | { items?: JobApplication[]; savedAt?: number };
+        const cachedItems = Array.isArray(parsedCache)
+          ? parsedCache
+          : Array.isArray(parsedCache?.items)
+            ? parsedCache.items
+            : [];
+        const cacheAgeMs = typeof parsedCache === 'object' && !Array.isArray(parsedCache) && parsedCache?.savedAt
+          ? Date.now() - parsedCache.savedAt
+          : Number.POSITIVE_INFINITY;
+        const cacheIsStale = cacheAgeMs > CACHE_MAX_AGE_MS;
+
+        if (cachedItems.length > 0) {
+          setStaleCache(cacheIsStale);
+          setApplications(cachedItems);
+          setLoading(false);
+          loadApplications(userId, true);
+          return;
+        }
+      } catch {
+        // Ignore invalid cache and continue normal fetch.
+      }
+    }
+
+    loadApplications(userId);
+  }, [userId]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -36,18 +85,32 @@ export default function Applications() {
     }
   }, [openStatusMenu]);
 
-  async function loadApplications() {
+  async function loadApplications(idFromArg?: string, silent = false) {
+    const activeUserId = idFromArg || userId;
+    if (!activeUserId) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      setLoading(true);
-      // Get userId from user object (Cognito sub or mock userId)
-      const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
-      const data = await listApplications(userId);
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      const data = await listApplications(activeUserId);
       setApplications(data);
+      localStorage.setItem(getCacheKey(activeUserId), JSON.stringify({
+        items: data,
+        savedAt: Date.now(),
+      }));
+      setStaleCache(false);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load applications');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -60,6 +123,7 @@ export default function Applications() {
 
   const filteredApplications = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
+    const normalizeDateFilter = (value: string) => value.trim().replace(/[/.]/g, '-');
 
     return applications.filter((app) => {
       const byStatus = filter === 'all' || app.status === filter;
@@ -70,13 +134,16 @@ export default function Applications() {
         || app.position.toLowerCase().includes(normalizedSearch);
       if (!bySearch) return false;
 
-      const appliedTime = new Date(app.appliedDate).getTime();
-      const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
-      const toTime = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
+      const appliedTime = dateOnlyToBoundaryMs(app.appliedDate, false);
+      const fromTime = dateOnlyToBoundaryMs(normalizeDateFilter(dateFrom), false);
+      const toTime = dateOnlyToBoundaryMs(normalizeDateFilter(dateTo), true);
 
       return appliedTime >= fromTime && appliedTime <= toTime;
     });
   }, [applications, filter, searchTerm, dateFrom, dateTo]);
+
+  const normalizeDateInput = (value: string) =>
+    value.replace(/[^0-9-/.]/g, '').slice(0, 10);
 
   const handleStatusChange = async (appId: string, newStatus: ApplicationStatus) => {
     try {
@@ -105,11 +172,11 @@ export default function Applications() {
     return colors[status] || '#6B7280';
   };
 
-  if (loading) {
+  if (loading && applications.length === 0) {
     return <div className="loading">Loading applications...</div>;
   }
 
-  if (error) {
+  if (error && applications.length === 0) {
     return <div className="error">Error: {error}</div>;
   }
 
@@ -126,36 +193,6 @@ export default function Applications() {
             <HiPlusCircle className="btn-icon" />
             <span>Add New Application</span>
           </Link>
-        </div>
-      </div>
-
-      <div className="quick-stats">
-        <div className="stat-card">
-          <div className="stat-icon">
-            <HiBriefcase />
-          </div>
-          <div className="stat-content">
-            <div className="stat-value">{applications.length}</div>
-            <div className="stat-label">Total Applications</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">
-            <HiChartBar />
-          </div>
-          <div className="stat-content">
-            <div className="stat-value">{applications.filter(a => a.status === 'interview').length}</div>
-            <div className="stat-label">In Interview</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">
-            <HiClipboardList />
-          </div>
-          <div className="stat-content">
-            <div className="stat-value">{applications.filter(a => a.status === 'offer' || a.status === 'accepted').length}</div>
-            <div className="stat-label">Offers</div>
-          </div>
         </div>
       </div>
 
@@ -201,21 +238,33 @@ export default function Applications() {
           onChange={(e) => setSearchTerm(e.target.value)}
         />
         <div className="date-range-filters">
-          <input
-            type="date"
-            className="date-input"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            aria-label="Filter from date"
-          />
+          <div className="date-field">
+            <label className="date-field-label" htmlFor="applications-date-from">From</label>
+            <input
+              id="applications-date-from"
+              type={isIOS ? 'text' : 'date'}
+              className="date-input"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(isIOS ? normalizeDateInput(e.target.value) : e.target.value)}
+              placeholder={isIOS ? 'YYYY-MM-DD' : undefined}
+              inputMode={isIOS ? 'numeric' : undefined}
+              aria-label="Filter from date"
+            />
+          </div>
           <span className="date-range-separator">to</span>
-          <input
-            type="date"
-            className="date-input"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            aria-label="Filter to date"
-          />
+          <div className="date-field">
+            <label className="date-field-label" htmlFor="applications-date-to">To</label>
+            <input
+              id="applications-date-to"
+              type={isIOS ? 'text' : 'date'}
+              className="date-input"
+              value={dateTo}
+              onChange={(e) => setDateTo(isIOS ? normalizeDateInput(e.target.value) : e.target.value)}
+              placeholder={isIOS ? 'YYYY-MM-DD' : undefined}
+              inputMode={isIOS ? 'numeric' : undefined}
+              aria-label="Filter to date"
+            />
+          </div>
           <button
             type="button"
             className="clear-date-btn"
@@ -229,6 +278,14 @@ export default function Applications() {
           </button>
         </div>
       </div>
+
+      {(refreshing || error) && (
+        <div className="sync-hint">
+          {refreshing
+            ? (staleCache ? 'Cached data is old. Refreshing latest applications...' : 'Updating latest applications...')
+            : `Showing cached data. ${error}`}
+        </div>
+      )}
 
       {filteredApplications.length === 0 ? (
         <div className="empty-state">
@@ -283,7 +340,7 @@ export default function Applications() {
                 <div className="card-details">
                   <span className="detail-item">
                     <HiCalendar className="detail-icon" />
-                    {new Date(app.appliedDate).toLocaleDateString()}
+                    {formatDateOnlyForDisplay(app.appliedDate)}
                   </span>
                   {app.location && (
                     <span className="detail-item">

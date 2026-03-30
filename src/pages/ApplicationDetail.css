@@ -113,6 +113,61 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+.application-form {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.875rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #E2E8F0;
+  border-radius: 8px;
+  background-color: white;
+  color: #334155;
+  font-family: inherit;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #6366F1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.form-group input[type="date"],
+.form-group input[type="time"] {
+  min-height: 44px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
 .detail-card {
   margin-top: 0;
 }
@@ -482,6 +537,10 @@
     padding: 1.5rem 1rem;
   }
 
+  .application-form {
+    padding: 1.5rem 1rem;
+  }
+
   .detail-grid {
     grid-template-columns: 1fr;
     gap: 0.75rem;
@@ -511,6 +570,11 @@
   .form-row {
     grid-template-columns: 1fr;
   }
+
+  .form-group input[type="date"],
+  .form-group input[type="time"] {
+    font-size: 16px;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -527,6 +591,29 @@
   .detail-content {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .application-form {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .form-group label {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    border-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    border-color: #667eea;
   }
 
   .detail-card .card-header {
