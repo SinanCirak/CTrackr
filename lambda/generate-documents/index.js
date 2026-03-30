@@ -735,110 +735,145 @@ function generateCVPrompt(userProfile, jobApplication, haikuPrep) {
         `${(vol.highlights || []).join(' | ')}`
       ].join('\n')).join('\n') || 'Not provided');
 
-  return `You are a professional CV writer. Return ONLY valid JSON matching the schema exactly. No markdown, no code fences, no commentary.
+  return `You are a professional CV writer specialized in ATS-optimized, high-impact resumes.
+
+Return ONLY valid JSON matching the schema exactly. No markdown, no code fences, no commentary.
+
+HARD CONSTRAINT:
+
+* The final CV must fit within 2 pages.
+* Prioritize relevance over completeness.
+* If needed, REMOVE weaker or less relevant content.
 
 RULES:
-- Use ONLY the provided data.
-- Do NOT invent roles, employers, projects, dates, locations, degrees, certifications, skills, or achievements.
-- Keep all string values single-line only.
-- Avoid generic phrases like "passionate", "hard-working", "team player", "strong background", "results-driven", "highly motivated".
-- Use direct, specific, professional language.
+
+* Use ONLY the provided data.
+* Do NOT invent roles, employers, projects, dates, locations, degrees, certifications, skills, or achievements.
+* Keep all string values single-line only.
+* Avoid generic phrases like "passionate", "hard-working", "team player", "strong background", "results-driven", "highly motivated".
+* Use direct, specific, professional language.
+
+STRATEGY:
+
+* Optimize for interview selection, not completeness.
+* Emphasize impact, ownership, and real systems built.
+* Prefer strong, concrete examples over broad coverage.
+* Make the candidate sound credible, capable, and worth interviewing.
 
 SECTION RULES:
-- experience = paid/professional work only (employment, freelance, contract, project-based professional roles)
-- volunteer = unpaid/community roles only
-- projects = projects only, not jobs or volunteer roles
-- education = education only
-- certifications = certifications only
-- skills = grouped skill categories only
-- Never place the same item in multiple sections.
-- Never place volunteer roles in experience.
-- Never place projects in experience.
+
+* experience = paid/professional work only
+* volunteer = unpaid roles only
+* projects = projects only
+* education = education only
+* certifications = certifications only
+* skills = grouped categories only
+* Never duplicate items across sections
 
 QUALITY RULES:
-- Summary: 3-4 sentences max.
-- Include at least 2 relevant job keywords in the summary and/or experience bullets.
-- Use the strongest, most relevant entries first.
-- Bullets should be concise, action-oriented, and non-repetitive.
-- Max 4 bullets per entry.
 
-LIMITS:
-- Max 4 experience entries
-- Max 4 project entries
-- Max 8 skill categories
-- Max 3 education entries
-- Max 6 certifications
-- Max 6 languages
+* Summary: 3–4 sentences max
+* Include at least 2 job-relevant keywords
+* Focus on alignment with the role
+* Max 4 bullets per entry
+* Use strong action verbs
+* Avoid repetition across bullets
+* Each bullet must add new information
 
-Before returning JSON, check:
-- no duplicate entries across sections
-- volunteer not included in experience
-- projects not included in experience
-- output is valid JSON
+IMPACT RULES:
+
+* Prefer: systems built, tools used, outcomes achieved
+* Highlight: automation, scalability, reliability, performance, or user impact when applicable
+* If metrics are not provided, focus on functional impact (what improved, what was enabled)
+
+COMPRESSION RULES (CRITICAL FOR 2 PAGES):
+
+* Keep bullets concise (1 line each)
+* Remove weak, generic, or redundant bullets
+* Limit to:
+
+  * Max 4 experience entries
+  * Max 4 projects (choose strongest)
+  * Max 6–8 skill categories (only relevant)
+* Prioritize recent and relevant content
+
+POSITIONING:
+
+* Align tone with the job level (junior, mid, etc.)
+* Emphasize strengths that match the role focus
+* Make the candidate sound like someone worth interviewing, not overqualified or exaggerated
+
+FINAL CHECK:
+
+* No duplicate entries across sections
+* Volunteer not included in experience
+* Projects not included in experience
+* JSON is valid
+* Content is concise and fits 2-page constraint
 
 OUTPUT JSON SCHEMA:
 {
-  "summary": "string",
-  "experience": [
-    {
-      "title": "string",
-      "company": "string",
-      "location": "string",
-      "startDate": "string",
-      "endDate": "string",
-      "bullets": ["string"]
-    }
-  ],
-  "projects": [
-    {
-      "name": "string",
-      "year": "string",
-      "description": "string",
-      "technologies": ["string"],
-      "bullets": ["string"],
-      "url": "string"
-    }
-  ],
-  "skills": [
-    { "category": "string", "items": ["string"] }
-  ],
-  "education": [
-    {
-      "degree": "string",
-      "field": "string",
-      "institution": "string",
-      "location": "string",
-      "startDate": "string",
-      "endDate": "string",
-      "current": "string"
-    }
-  ],
-  "certifications": [
-    {
-      "name": "string",
-      "code": "string",
-      "issuer": "string",
-      "issueDate": "string"
-    }
-  ],
-  "volunteer": [
-    {
-      "role": "string",
-      "organization": "string",
-      "location": "string",
-      "startDate": "string",
-      "endDate": "string",
-      "bullets": ["string"]
-    }
-  ],
-  "languages": [
-    { "language": "string", "proficiency": "string" }
-  ]
+"summary": "string",
+"experience": [
+{
+"title": "string",
+"company": "string",
+"location": "string",
+"startDate": "string",
+"endDate": "string",
+"bullets": ["string"]
+}
+],
+"projects": [
+{
+"name": "string",
+"year": "string",
+"description": "string",
+"technologies": ["string"],
+"bullets": ["string"],
+"url": "string"
+}
+],
+"skills": [
+{ "category": "string", "items": ["string"] }
+],
+"education": [
+{
+"degree": "string",
+"field": "string",
+"institution": "string",
+"location": "string",
+"startDate": "string",
+"endDate": "string",
+"current": "string"
+}
+],
+"certifications": [
+{
+"name": "string",
+"code": "string",
+"issuer": "string",
+"issueDate": "string"
+}
+],
+"volunteer": [
+{
+"role": "string",
+"organization": "string",
+"location": "string",
+"startDate": "string",
+"endDate": "string",
+"bullets": ["string"]
+}
+],
+"languages": [
+{ "language": "string", "proficiency": "string" }
+]
 }
 
 INPUT:
 Summary: ${summary}
-Skills (categories preferred):
+Skills:
 ${skillsText}
 Experience:
 ${experienceInput}

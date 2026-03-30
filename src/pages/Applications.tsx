@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { HiPlusCircle, HiLocationMarker, HiCalendar, HiBriefcase, HiClipboardList, HiChartBar, HiChevronDown, HiDocument } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +12,9 @@ export default function Applications() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [openStatusMenu, setOpenStatusMenu] = useState<string | null>(null);
 
@@ -48,9 +51,32 @@ export default function Applications() {
     }
   }
 
-  const filteredApplications = filter === 'all' 
-    ? applications 
-    : applications.filter(app => app.status === filter);
+  const statusCounts = useMemo(() => {
+    return applications.reduce<Record<string, number>>((acc, app) => {
+      acc[app.status] = (acc[app.status] || 0) + 1;
+      return acc;
+    }, {});
+  }, [applications]);
+
+  const filteredApplications = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return applications.filter((app) => {
+      const byStatus = filter === 'all' || app.status === filter;
+      if (!byStatus) return false;
+
+      const bySearch = !normalizedSearch
+        || app.company.toLowerCase().includes(normalizedSearch)
+        || app.position.toLowerCase().includes(normalizedSearch);
+      if (!bySearch) return false;
+
+      const appliedTime = new Date(app.appliedDate).getTime();
+      const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
+      const toTime = dateTo ? new Date(`${dateTo}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
+
+      return appliedTime >= fromTime && appliedTime <= toTime;
+    });
+  }, [applications, filter, searchTerm, dateFrom, dateTo]);
 
   const handleStatusChange = async (appId: string, newStatus: ApplicationStatus) => {
     try {
@@ -144,31 +170,69 @@ export default function Applications() {
           className={filter === 'applied' ? 'active' : ''}
           onClick={() => setFilter('applied')}
         >
-          Applied
+          Applied ({statusCounts.applied || 0})
         </button>
         <button 
           className={filter === 'interview' ? 'active' : ''}
           onClick={() => setFilter('interview')}
         >
-          Interview
+          Interview ({statusCounts.interview || 0})
         </button>
         <button 
           className={filter === 'offer' ? 'active' : ''}
           onClick={() => setFilter('offer')}
         >
-          Offer
+          Offer ({statusCounts.offer || 0})
         </button>
         <button 
           className={filter === 'rejected' ? 'active' : ''}
           onClick={() => setFilter('rejected')}
         >
-          Rejected
+          Rejected ({statusCounts.rejected || 0})
         </button>
+      </div>
+
+      <div className="search-row">
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Search company or job title..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <div className="date-range-filters">
+          <input
+            type="date"
+            className="date-input"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            aria-label="Filter from date"
+          />
+          <span className="date-range-separator">to</span>
+          <input
+            type="date"
+            className="date-input"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            aria-label="Filter to date"
+          />
+          <button
+            type="button"
+            className="clear-date-btn"
+            onClick={() => {
+              setDateFrom('');
+              setDateTo('');
+            }}
+            disabled={!dateFrom && !dateTo}
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
       {filteredApplications.length === 0 ? (
         <div className="empty-state">
-          <p>No applications found.</p>
+          <p>{applications.length === 0 ? 'No applications found.' : 'No applications match your filters.'}</p>
           <Link to="/applications/new" className="btn btn-primary">
             Add Your First Application
           </Link>
