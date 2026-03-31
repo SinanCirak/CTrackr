@@ -21,11 +21,6 @@ export default function Applications() {
   const [dateTo, setDateTo] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [openStatusMenu, setOpenStatusMenu] = useState<string | null>(null);
-  const isIOS = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    return /iPad|iPhone|iPod/.test(navigator.userAgent)
-      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  }, []);
 
   const userId = useMemo(
     () => user?.userId || (user as any)?.sub || (user as any)?.username,
@@ -73,15 +68,15 @@ export default function Applications() {
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: PointerEvent) => {
       if (openStatusMenu && !(event.target as Element).closest('.status-container')) {
         setOpenStatusMenu(null);
       }
     };
 
     if (openStatusMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener('pointerdown', handleClickOutside);
+      return () => document.removeEventListener('pointerdown', handleClickOutside);
     }
   }, [openStatusMenu]);
 
@@ -141,9 +136,6 @@ export default function Applications() {
       return appliedTime >= fromTime && appliedTime <= toTime;
     });
   }, [applications, filter, searchTerm, dateFrom, dateTo]);
-
-  const normalizeDateInput = (value: string) =>
-    value.replace(/[^0-9-/.]/g, '').slice(0, 10);
 
   const handleStatusChange = async (appId: string, newStatus: ApplicationStatus) => {
     try {
@@ -230,24 +222,34 @@ export default function Applications() {
       </div>
 
       <div className="search-row">
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Search company or job title..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="search-input-wrap">
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search company or job title..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              className="clear-search-btn"
+              onClick={() => setSearchTerm('')}
+              aria-label="Clear search"
+            >
+              x
+            </button>
+          )}
+        </div>
         <div className="date-range-filters">
           <div className="date-field">
             <label className="date-field-label" htmlFor="applications-date-from">From</label>
             <input
               id="applications-date-from"
-              type={isIOS ? 'text' : 'date'}
+              type="date"
               className="date-input"
               value={dateFrom}
-              onChange={(e) => setDateFrom(isIOS ? normalizeDateInput(e.target.value) : e.target.value)}
-              placeholder={isIOS ? 'YYYY-MM-DD' : undefined}
-              inputMode={isIOS ? 'numeric' : undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
               aria-label="Filter from date"
             />
           </div>
@@ -256,12 +258,10 @@ export default function Applications() {
             <label className="date-field-label" htmlFor="applications-date-to">To</label>
             <input
               id="applications-date-to"
-              type={isIOS ? 'text' : 'date'}
+              type="date"
               className="date-input"
               value={dateTo}
-              onChange={(e) => setDateTo(isIOS ? normalizeDateInput(e.target.value) : e.target.value)}
-              placeholder={isIOS ? 'YYYY-MM-DD' : undefined}
-              inputMode={isIOS ? 'numeric' : undefined}
+              onChange={(e) => setDateTo(e.target.value)}
               aria-label="Filter to date"
             />
           </div>
@@ -298,15 +298,18 @@ export default function Applications() {
         <div className="applications-grid">
           {filteredApplications.map((app) => (
             <div key={app.id} className="application-card-wrapper">
-              <Link to={`/applications/${app.id}`} className="application-card">
+              <div className="application-card">
                 <div className="card-header">
-                  <h3>{app.company}</h3>
+                  <Link to={`/applications/${app.id}`} className="card-title-link">
+                    <h3>{app.company}</h3>
+                  </Link>
                   <div className="status-container">
                     <button
                       className="status-badge status-badge-clickable"
                       style={{ backgroundColor: getStatusColor(app.status) }}
                       onClick={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         setOpenStatusMenu(openStatusMenu === app.id ? null : app.id);
                       }}
                       disabled={updatingStatus === app.id}
@@ -336,30 +339,32 @@ export default function Applications() {
                     )}
                   </div>
                 </div>
-                <p className="position">{app.position}</p>
-                <div className="card-details">
-                  <span className="detail-item">
-                    <HiCalendar className="detail-icon" />
-                    {formatDateOnlyForDisplay(app.appliedDate)}
-                  </span>
-                  {app.location && (
+                <Link to={`/applications/${app.id}`} className="card-body-link">
+                  <p className="position">{app.position}</p>
+                  <div className="card-details">
                     <span className="detail-item">
-                      <HiLocationMarker className="detail-icon" />
-                      {app.location}
+                      <HiCalendar className="detail-icon" />
+                      {formatDateOnlyForDisplay(app.appliedDate)}
                     </span>
-                  )}
-                  <span className="detail-item">
-                    <HiDocument className="detail-icon" />
-                    {app.cvUrl && app.coverLetterUrl 
-                      ? 'CV, Cover Letter'
-                      : app.cvUrl 
-                        ? 'CV'
-                        : app.coverLetterUrl
-                          ? 'Cover Letter'
-                          : 'No documents'}
-                  </span>
-                </div>
-              </Link>
+                    {app.location && (
+                      <span className="detail-item">
+                        <HiLocationMarker className="detail-icon" />
+                        {app.location}
+                      </span>
+                    )}
+                    <span className="detail-item">
+                      <HiDocument className="detail-icon" />
+                      {app.cvUrl && app.coverLetterUrl 
+                        ? 'CV, Cover Letter'
+                        : app.cvUrl 
+                          ? 'CV'
+                          : app.coverLetterUrl
+                            ? 'Cover Letter'
+                            : 'No documents'}
+                    </span>
+                  </div>
+                </Link>
+              </div>
             </div>
           ))}
         </div>

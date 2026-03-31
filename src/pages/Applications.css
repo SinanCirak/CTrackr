@@ -172,15 +172,21 @@
   flex-wrap: wrap;
 }
 
-.search-input {
+.search-input-wrap {
+  position: relative;
   flex: 0 1 420px;
   width: 100%;
   max-width: 420px;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 100%;
   min-width: 240px;
   height: 44px;
   min-height: 44px;
   max-height: 44px;
-  padding: 0.625rem 0.875rem;
+  padding: 0.625rem 2.35rem 0.625rem 0.875rem;
   border: 2px solid #E2E8F0;
   border-radius: 8px;
   background: #FFFFFF;
@@ -194,6 +200,32 @@
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.clear-search-btn {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid #CBD5E1;
+  background: #F8FAFC;
+  color: #64748B;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.clear-search-btn:hover {
+  border-color: #6366F1;
+  color: #6366F1;
+}
+
 .search-input:focus {
   outline: none;
   border-color: #6366F1;
@@ -205,12 +237,14 @@
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  overflow: hidden;
 }
 
 .date-field {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .date-field-label {
@@ -230,6 +264,10 @@
   appearance: auto;
   -webkit-appearance: auto;
   box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-inline-size: 0;
+  overflow: hidden;
 }
 
 .date-input::placeholder {
@@ -304,6 +342,23 @@
   overflow: visible;
   height: 100%;
   min-height: 200px;
+}
+
+.card-title-link,
+.card-body-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.card-title-link {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-body-link {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .application-card:hover {
@@ -593,6 +648,14 @@
     flex-direction: column;
     gap: 0.75rem;
     width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .search-input-wrap {
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 auto;
   }
 
   .search-input {
@@ -606,20 +669,31 @@
     font-size: 0.9rem;
   }
 
+  .clear-search-btn {
+    width: 22px;
+    height: 22px;
+    right: 0.5rem;
+  }
+
   .date-range-filters {
     width: 100%;
-    gap: 0.4rem;
+    max-width: 100%;
+    gap: 0.45rem;
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    overflow: hidden;
   }
 
   .date-field {
     width: 100%;
-    display: grid;
-    grid-template-columns: 52px minmax(0, 1fr);
-    align-items: center;
-    gap: 0.5rem;
+    min-width: 0;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    overflow: hidden;
   }
 
   .date-field-label {
@@ -632,17 +706,30 @@
 
   .date-input {
     width: 100%;
+    inline-size: 100%;
+    max-inline-size: 100%;
     min-width: 0;
+    max-width: 100%;
+    width: min(100%, calc(100vw - 2rem));
     height: 42px;
     min-height: 42px;
+    max-height: 42px;
     font-size: 16px;
+    display: block;
+    box-sizing: border-box;
+    line-height: 42px;
+    padding-block: 0;
+    padding-inline: 0.65rem;
+    padding-inline-end: 2rem;
   }
 
   .clear-date-btn {
+    margin-left: auto;
     align-self: flex-end;
     padding: 0.55rem 0.75rem;
-    height: 42px;
-    min-height: 42px;
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
   }
 
   .application-card {
@@ -667,11 +754,15 @@
   }
 
   .status-dropdown {
-    right: 0;
+    right: 0.25rem;
     left: auto;
-    position: fixed;
+    position: absolute;
+    top: auto;
+    bottom: calc(100% + 0.35rem);
     z-index: 10000;
     max-width: 200px;
+    max-height: 48vh;
+    overflow-y: auto;
   }
 
   .application-card-wrapper {
@@ -685,6 +776,50 @@
 
   .card-details {
     font-size: 0.8125rem;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 768px) {
+    .date-input {
+      width: 100%;
+      inline-size: 100%;
+      max-inline-size: 100%;
+      min-width: 0;
+      width: min(100%, calc(100vw - 2rem));
+      height: 42px;
+      min-height: 42px;
+      max-height: 42px;
+      font-size: 16px;
+      line-height: 42px;
+      padding-block: 0;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .date-input::-webkit-datetime-edit,
+    .date-input::-webkit-datetime-edit-fields-wrapper,
+    .date-input::-webkit-datetime-edit-text,
+    .date-input::-webkit-datetime-edit-month-field,
+    .date-input::-webkit-datetime-edit-day-field,
+    .date-input::-webkit-datetime-edit-year-field {
+      padding: 0;
+      margin: 0;
+      line-height: 42px;
+    }
+
+    .date-input::-webkit-date-and-time-value {
+      text-align: left;
+      min-height: 42px;
+      line-height: 42px;
+    }
+
+    .date-input::-webkit-calendar-picker-indicator {
+      margin: 0;
+      opacity: 1;
+      width: 1.15em;
+      height: 1.15em;
+    }
   }
 }
 
@@ -714,6 +849,17 @@
 
   .search-input::placeholder {
     color: rgba(255, 255, 255, 0.6);
+  }
+
+  .clear-search-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.78);
+  }
+
+  .clear-search-btn:hover {
+    border-color: #A5B4FC;
+    color: #C7D2FE;
   }
 
   .date-input::placeholder {
