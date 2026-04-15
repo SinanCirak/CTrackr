@@ -109,10 +109,10 @@ export default function Applications() {
     }
   }
 
-  const baseFiltered = useMemo(() => {const baseFiltered = useMemo(() => {
+    const baseFiltered = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     const normalizeDate = (v: string) => v.trim().replace(/[/.]/g, '-');
-  
+
     return applications.filter((app) => {
       if (
         normalizedSearch &&
@@ -121,15 +121,14 @@ export default function Applications() {
       ) {
         return false;
       }
-  
+
       const appliedTime = dateOnlyToBoundaryMs(app.appliedDate, false);
       const fromTime = dateOnlyToBoundaryMs(normalizeDate(dateFrom), false);
       const toTime = dateOnlyToBoundaryMs(normalizeDate(dateTo), true);
-  
+
       return appliedTime >= fromTime && appliedTime <= toTime;
     });
   }, [applications, searchTerm, dateFrom, dateTo]);
-
   const statusCounts = useMemo(() => {
     return baseFiltered.reduce<Record<string, number>>((acc, app) => {
       acc[app.status] = (acc[app.status] || 0) + 1;
@@ -377,5 +376,4 @@ export default function Applications() {
       )}
     </div>
   );
-}
-
+  }
