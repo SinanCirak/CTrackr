@@ -31,7 +31,7 @@ terraform {
     dynamodb_table = "terraform-locks"
   }
 }
-#Test Terraform
+#Test Terraform 2
 # DynamoDB Table for Job Applications
 resource "aws_dynamodb_table" "applications" {
   name         = "${var.project_name}-applications"
