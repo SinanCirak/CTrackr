@@ -22,6 +22,16 @@ provider "aws" {
   region = "us-east-1"
 }
 
+# Backend configuration for Terraform state
+terraform {
+  backend "s3" {
+    bucket         = "ctrackr-terraform-state"
+    key            = "prod/terraform.tfstate"
+    region         = "ca-central-1"
+    dynamodb_table = "terraform-locks"
+  }
+}
+
 # DynamoDB Table for Job Applications
 resource "aws_dynamodb_table" "applications" {
   name         = "${var.project_name}-applications"
