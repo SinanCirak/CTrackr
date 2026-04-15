@@ -49,7 +49,7 @@ jobs:
       - name: Deploy to S3
         run: |
           set -ex
-          aws s3 sync build/ s3://ctrackr-website-prod --delete
+          aws s3 sync dist/ s3://ctrackr-website-prod --delete
 
       - name: Invalidate CloudFront
         run: |
