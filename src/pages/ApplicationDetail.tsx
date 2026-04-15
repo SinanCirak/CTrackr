@@ -1,11 +1,66 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { HiArrowLeft, HiPencil, HiTrash, HiX, HiCheck, HiLocationMarker, HiCalendar, HiCurrencyDollar, HiLink, HiMail, HiUser, HiDocument, HiDownload, HiClock, HiVideoCamera } from 'react-icons/hi';
-import { getApplication, updateApplication, deleteApplication, getProfile, deleteFile } from '../utils/api';
-import { formatDateOnlyForDisplay } from '../utils/date';
+import {
+  HiArrowLeft,
+  HiPencil,
+  HiTrash,
+  HiX,
+  HiCheck,
+  HiLocationMarker,
+  HiCalendar,
+  HiCurrencyDollar,
+  HiLink,
+  HiMail,
+  HiUser,
+  HiDocument,
+  HiDownload,
+  HiClock,
+  HiVideoCamera,
+  HiCloudUpload,
+} from 'react-icons/hi';
+import {
+  getApplication,
+  updateApplication,
+  deleteApplication,
+  getProfile,
+  deleteFile,
+  getUploadUrl,
+  uploadFileToS3,
+} from '../utils/api';
+import { formatDateOnlyForDisplay, getTodayDateLocalISO } from '../utils/date';
 import type { JobApplication, UpdateApplicationInput, DocumentVersion } from '../types/application';
 import { useAuth } from '../contexts/AuthContext';
 import './ApplicationDetail.css';
+
+function buildFormData(data: JobApplication): UpdateApplicationInput {
+  return {
+    company: data.company,
+    position: data.position,
+    status: data.status,
+    appliedDate: data.appliedDate,
+    interviewDate: data.interviewDate,
+    interviewTime: data.interviewTime,
+    interviewPlace: data.interviewPlace,
+    interviewLink: data.interviewLink,
+    offerDate: data.offerDate,
+    rejectedDate: data.rejectedDate,
+    location: data.location,
+    salary: data.salary,
+    jobUrl: data.jobUrl,
+    contactName: data.contactName,
+    contactEmail: data.contactEmail,
+    notes: data.notes,
+    jobDescription: data.jobDescription,
+    requirements: data.requirements,
+    cvUrl: data.cvUrl,
+    cvFileKey: data.cvFileKey,
+    coverLetterUrl: data.coverLetterUrl,
+    coverLetterFileKey: data.coverLetterFileKey,
+    cvVersions: data.cvVersions ?? [],
+    coverLetterVersions: data.coverLetterVersions ?? [],
+    parsedJob: data.parsedJob,
+  };
+}
 
 export default function ApplicationDetail() {
   const { id } = useParams<{ id: string }>();
@@ -18,8 +73,19 @@ export default function ApplicationDetail() {
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState<UpdateApplicationInput>({});
   const [generating, setGenerating] = useState({ cv: false, coverLetter: false });
+  const [uploadingCv, setUploadingCv] = useState(false);
+  const [uploadingCoverLetter, setUploadingCoverLetter] = useState(false);
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
+  const cvFileInputRef = useRef<HTMLInputElement>(null);
+  const coverLetterFileInputRef = useRef<HTMLInputElement>(null);
 
-  const buildVersionEntry = (fileUrl: string, fileKey: string | undefined, version: number, source: 'generated' | 'uploaded'): DocumentVersion => ({
+  const buildVersionEntry = (
+    fileUrl: string,
+    fileKey: string | undefined,
+    version: number,
+    source: 'generated' | 'uploaded'
+  ): DocumentVersion => ({
     version,
     label: `v${version}`,
     url: fileUrl,
@@ -31,6 +97,15 @@ export default function ApplicationDetail() {
   const getLatestVersion = (versions: DocumentVersion[] | undefined) => {
     if (!versions || versions.length === 0) return null;
     return [...versions].sort((a, b) => b.version - a.version)[0];
+  };
+
+  const removeVersion = (versions: DocumentVersion[] | undefined, fileKey?: string, url?: string) => {
+    if (!versions || versions.length === 0) return [];
+    return versions.filter(version => {
+      if (fileKey && version.fileKey === fileKey) return false;
+      if (url && version.url === url) return false;
+      return true;
+    });
   };
 
   useEffect(() => {
@@ -45,24 +120,7 @@ export default function ApplicationDetail() {
       setLoading(true);
       const data = await getApplication(id);
       setApplication(data);
-      setFormData({
-        company: data.company,
-        position: data.position,
-        status: data.status,
-        appliedDate: data.appliedDate,
-        interviewDate: data.interviewDate,
-        interviewTime: data.interviewTime,
-        interviewPlace: data.interviewPlace,
-        interviewLink: data.interviewLink,
-        offerDate: data.offerDate,
-        rejectedDate: data.rejectedDate,
-        location: data.location,
-        salary: data.salary,
-        jobUrl: data.jobUrl,
-        contactName: data.contactName,
-        contactEmail: data.contactEmail,
-        notes: data.notes,
-      });
+      setFormData(buildFormData(data));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load application');
@@ -79,6 +137,27 @@ export default function ApplicationDetail() {
     }));
   };
 
+  const startEditing = () => {
+    if (!application) return;
+    setFormData(buildFormData(application));
+    setCvFile(null);
+    setCoverLetterFile(null);
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    if (application) {
+      setFormData(buildFormData(application));
+    }
+    setCvFile(null);
+    setCoverLetterFile(null);
+    if (cvFileInputRef.current) cvFileInputRef.current.value = '';
+    if (coverLetterFileInputRef.current) coverLetterFileInputRef.current.value = '';
+    setEditing(false);
+    setError(null);
+    setGenerationError(null);
+  };
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
@@ -86,6 +165,9 @@ export default function ApplicationDetail() {
     try {
       const updated = await updateApplication(id, formData);
       setApplication(updated);
+      setFormData(buildFormData(updated));
+      setCvFile(null);
+      setCoverLetterFile(null);
       setEditing(false);
       setError(null);
     } catch (err) {
@@ -104,8 +186,119 @@ export default function ApplicationDetail() {
     }
   };
 
+  const generateFileName = (originalFileName: string, type: 'cv' | 'coverLetter', companyName: string): string => {
+    const fileExtension = originalFileName.split('.').pop() || 'pdf';
+    const sanitizedCompany = companyName
+      .trim()
+      .replace(/[^a-zA-Z0-9]/g, '_')
+      .replace(/_+/g, '_')
+      .toLowerCase()
+      .substring(0, 50);
+    const date = getTodayDateLocalISO();
+    const prefix = type === 'cv' ? 'CV' : 'CoverLetter';
+    return `${prefix}_${sanitizedCompany}_${date}.${fileExtension}`;
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'cv' | 'coverLetter') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!formData.company || formData.company.trim() === '') {
+      setError('Please enter company name before uploading files.');
+      return;
+    }
+
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError('Invalid file type. Only PDF and DOC/DOCX files are allowed.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB.');
+      return;
+    }
+
+    try {
+      if (type === 'cv') {
+        setUploadingCv(true);
+        setCvFile(file);
+      } else {
+        setUploadingCoverLetter(true);
+        setCoverLetterFile(file);
+      }
+
+      setError(null);
+
+      const newFileName = generateFileName(file.name, type, formData.company);
+      const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
+
+      const { uploadUrl, fileUrl, fileKey } = await getUploadUrl(
+        newFileName,
+        file.type,
+        userId,
+        formData.company,
+        type === 'cv' ? 'CV' : 'CoverLetter'
+      );
+
+      await uploadFileToS3(uploadUrl, file);
+
+      if (type === 'cv') {
+        setFormData(prev => {
+          const currentVersions = prev.cvVersions ?? [];
+          const nextVersion = currentVersions.length + 1;
+          const newVersion = buildVersionEntry(fileUrl, fileKey, nextVersion, 'uploaded');
+          return {
+            ...prev,
+            cvUrl: fileUrl,
+            cvFileKey: fileKey,
+            cvVersions: [...currentVersions, newVersion],
+          };
+        });
+      } else {
+        setFormData(prev => {
+          const currentVersions = prev.coverLetterVersions ?? [];
+          const nextVersion = currentVersions.length + 1;
+          const newVersion = buildVersionEntry(fileUrl, fileKey, nextVersion, 'uploaded');
+          return {
+            ...prev,
+            coverLetterUrl: fileUrl,
+            coverLetterFileKey: fileKey,
+            coverLetterVersions: [...currentVersions, newVersion],
+          };
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload file');
+      if (type === 'cv') {
+        setCvFile(null);
+      } else {
+        setCoverLetterFile(null);
+      }
+    } finally {
+      if (type === 'cv') {
+        setUploadingCv(false);
+      } else {
+        setUploadingCoverLetter(false);
+      }
+    }
+  };
+
   const handleGenerateDocument = async (documentType: 'cv' | 'coverLetter') => {
-    if (!id || !application) return;
+    if (!id) return;
+
+    const currentApplication = editing ? { ...application, ...formData } : application;
+    if (!currentApplication) return;
+
+    if (!currentApplication.company || !currentApplication.position) {
+      setGenerationError('Please enter company and position before generating documents.');
+      return;
+    }
 
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
     if (!apiBaseUrl) {
@@ -136,7 +329,7 @@ export default function ApplicationDetail() {
         },
         body: JSON.stringify({
           userProfile,
-          jobApplication: application,
+          jobApplication: currentApplication,
           documentType,
           timezoneOffset,
         }),
@@ -148,42 +341,38 @@ export default function ApplicationDetail() {
       }
 
       const result = await response.json();
-      const s3Key = result.s3Key as string | undefined;
       const isCv = documentType === 'cv';
       const existingVersions = isCv
-        ? application?.cvVersions ?? []
-        : application?.coverLetterVersions ?? [];
+        ? currentApplication.cvVersions ?? []
+        : currentApplication.coverLetterVersions ?? [];
       const fallbackVersion = existingVersions.length + 1;
       const versionNumber = typeof result.version === 'number' ? result.version : fallbackVersion;
-      const newVersion = buildVersionEntry(result.fileUrl, s3Key, versionNumber, 'generated');
+      const newVersion = buildVersionEntry(result.fileUrl, result.s3Key, versionNumber, 'generated');
       const updatedVersions = [...existingVersions, newVersion];
-
       const nextParsedJob = result.haikuPrep
-        ? { ...(application.parsedJob || {}), haikuPrep: result.haikuPrep }
-        : application.parsedJob;
+        ? { ...(currentApplication.parsedJob || {}), haikuPrep: result.haikuPrep }
+        : currentApplication.parsedJob;
+
       const updatePayload = isCv
-        ? { cvUrl: result.fileUrl, cvFileKey: s3Key, cvVersions: updatedVersions, parsedJob: nextParsedJob }
-        : { coverLetterUrl: result.fileUrl, coverLetterFileKey: s3Key, coverLetterVersions: updatedVersions, parsedJob: nextParsedJob };
+        ? { cvUrl: result.fileUrl, cvFileKey: result.s3Key, cvVersions: updatedVersions, parsedJob: nextParsedJob }
+        : {
+            coverLetterUrl: result.fileUrl,
+            coverLetterFileKey: result.s3Key,
+            coverLetterVersions: updatedVersions,
+            parsedJob: nextParsedJob,
+          };
 
       const updated = await updateApplication(id, updatePayload);
       setApplication(updated);
+      setFormData(prev => ({
+        ...prev,
+        ...updatePayload,
+      }));
     } catch (err) {
       setGenerationError(err instanceof Error ? err.message : 'Failed to generate document.');
     } finally {
       setGenerating(prev => ({ ...prev, [documentType]: false }));
     }
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      applied: '#6366F1',
-      interview: '#F59E0B',
-      offer: '#10B981',
-      rejected: '#EF4444',
-      withdrawn: '#6B7280',
-      accepted: '#10B981',
-    };
-    return colors[status] || '#6B7280';
   };
 
   const handleDeleteVersion = async (type: 'cv' | 'coverLetter', version: DocumentVersion) => {
@@ -212,9 +401,168 @@ export default function ApplicationDetail() {
 
       const updated = await updateApplication(id, updatePayload);
       setApplication(updated);
+      setFormData(prev => ({ ...prev, ...updatePayload }));
+      if (type === 'cv' && updatedVersions.length === 0) setCvFile(null);
+      if (type === 'coverLetter' && updatedVersions.length === 0) setCoverLetterFile(null);
     } catch (err) {
       setGenerationError(err instanceof Error ? err.message : 'Failed to delete document version.');
     }
+  };
+
+  const handleRemoveDirectFile = async (type: 'cv' | 'coverLetter') => {
+    if (!id || !application) return;
+
+    const fileKey = type === 'cv' ? application.cvFileKey : application.coverLetterFileKey;
+    const fileUrl = type === 'cv' ? application.cvUrl : application.coverLetterUrl;
+    const versions = type === 'cv' ? application.cvVersions : application.coverLetterVersions;
+
+    try {
+      if (fileKey) {
+        await deleteFile(fileKey);
+      }
+
+      const updatedVersions = removeVersion(versions, fileKey, fileUrl);
+      const latest = getLatestVersion(updatedVersions);
+      const updatePayload =
+        type === 'cv'
+          ? {
+              cvVersions: updatedVersions,
+              cvUrl: latest?.url,
+              cvFileKey: latest?.fileKey,
+            }
+          : {
+              coverLetterVersions: updatedVersions,
+              coverLetterUrl: latest?.url,
+              coverLetterFileKey: latest?.fileKey,
+            };
+
+      const updated = await updateApplication(id, updatePayload);
+      setApplication(updated);
+      setFormData(prev => ({ ...prev, ...updatePayload }));
+    } catch (err) {
+      setGenerationError(err instanceof Error ? err.message : 'Failed to remove document.');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      applied: '#6366F1',
+      interview: '#F59E0B',
+      offer: '#10B981',
+      rejected: '#EF4444',
+      withdrawn: '#6B7280',
+      accepted: '#10B981',
+    };
+    return colors[status] || '#6B7280';
+  };
+
+  const renderVersionList = (type: 'cv' | 'coverLetter', versions: DocumentVersion[] | undefined) => {
+    if (!versions || versions.length === 0) return null;
+
+    return (
+      <div className="uploaded-file-display">
+        <div className="uploaded-file-info uploaded-file-heading">
+          <HiDocument className="uploaded-file-icon" />
+          <span className="uploaded-file-name">{type === 'cv' ? 'CV Versions' : 'Cover Letter Versions'}</span>
+        </div>
+        {versions.map(version => (
+          <div key={`${type}-version-${version.version}`} className="uploaded-file-info">
+            <span className="uploaded-file-name">
+              {version.label} ({version.source})
+            </span>
+            <a
+              href={version.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="remove-file-btn"
+              aria-label={`Download ${version.label}`}
+            >
+              <HiDownload />
+            </a>
+            <button
+              type="button"
+              className="remove-file-btn"
+              onClick={() => {
+                if (editing) {
+                  setFormData(prev => {
+                    const currentVersions = type === 'cv' ? prev.cvVersions : prev.coverLetterVersions;
+                    const updatedVersions = removeVersion(currentVersions, version.fileKey, version.url);
+                    const latest = updatedVersions[updatedVersions.length - 1];
+                    return type === 'cv'
+                      ? { ...prev, cvVersions: updatedVersions, cvUrl: latest?.url, cvFileKey: latest?.fileKey }
+                      : {
+                          ...prev,
+                          coverLetterVersions: updatedVersions,
+                          coverLetterUrl: latest?.url,
+                          coverLetterFileKey: latest?.fileKey,
+                        };
+                  });
+                  return;
+                }
+
+                handleDeleteVersion(type, version);
+              }}
+              aria-label={`Delete ${version.label}`}
+            >
+              <HiX />
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderDirectFile = (
+    type: 'cv' | 'coverLetter',
+    fileUrl: string | undefined,
+    fileName: string | undefined,
+    hasVersions: boolean
+  ) => {
+    if (!fileUrl || hasVersions) return null;
+
+    return (
+      <div className="uploaded-file-display">
+        <div className="uploaded-file-info">
+          <HiDocument className="uploaded-file-icon" />
+          <span className="uploaded-file-name">{fileName || (type === 'cv' ? 'Uploaded CV' : 'Uploaded Cover Letter')}</span>
+          <a
+            href={fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="remove-file-btn"
+            aria-label={`Download ${type}`}
+          >
+            <HiDownload />
+          </a>
+          <button
+            type="button"
+            className="remove-file-btn"
+            onClick={() => {
+              if (editing) {
+                setFormData(prev =>
+                  type === 'cv'
+                    ? { ...prev, cvUrl: undefined, cvFileKey: undefined, cvVersions: [] }
+                    : { ...prev, coverLetterUrl: undefined, coverLetterFileKey: undefined, coverLetterVersions: [] }
+                );
+                if (type === 'cv') {
+                  setCvFile(null);
+                  if (cvFileInputRef.current) cvFileInputRef.current.value = '';
+                } else {
+                  setCoverLetterFile(null);
+                  if (coverLetterFileInputRef.current) coverLetterFileInputRef.current.value = '';
+                }
+                return;
+              }
+
+              handleRemoveDirectFile(type);
+            }}
+            aria-label={`Delete ${type}`}
+          >
+            <HiX />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -229,6 +577,10 @@ export default function ApplicationDetail() {
     return <div className="error">Application not found</div>;
   }
 
+  const currentView = editing ? { ...application, ...formData } : application;
+  const hasCvVersions = (currentView.cvVersions?.length ?? 0) > 0;
+  const hasCoverVersions = (currentView.coverLetterVersions?.length ?? 0) > 0;
+
   return (
     <div className="application-detail">
       <div className="detail-header">
@@ -239,7 +591,7 @@ export default function ApplicationDetail() {
         <div className="header-actions">
           {!editing && (
             <>
-              <button onClick={() => setEditing(true)} className="btn btn-secondary">
+              <button onClick={startEditing} className="btn btn-secondary">
                 <HiPencil className="btn-icon" />
                 <span>Edit</span>
               </button>
@@ -255,16 +607,13 @@ export default function ApplicationDetail() {
       {error && <div className="error-message">{error}</div>}
       {generationError && <div className="error-message">{generationError}</div>}
 
-      {!editing && application && (
+      {!editing && (
         <div className="application-hero">
           <div className="hero-content">
             <h1>{application.company}</h1>
             <p className="hero-position">{application.position}</p>
             <div className="hero-status">
-              <span 
-                className="status-badge-large"
-                style={{ backgroundColor: getStatusColor(application.status) }}
-              >
+              <span className="status-badge-large" style={{ backgroundColor: getStatusColor(application.status) }}>
                 {application.status}
               </span>
             </div>
@@ -275,36 +624,19 @@ export default function ApplicationDetail() {
       {editing ? (
         <form onSubmit={handleUpdate} className="application-form">
           <div className="form-group">
-            <label htmlFor="company">Company</label>
-            <input
-              type="text"
-              id="company"
-              name="company"
-              value={formData.company || ''}
-              onChange={handleChange}
-            />
+            <label htmlFor="company">Company *</label>
+            <input type="text" id="company" name="company" value={formData.company || ''} onChange={handleChange} required />
           </div>
 
           <div className="form-group">
-            <label htmlFor="position">Position</label>
-            <input
-              type="text"
-              id="position"
-              name="position"
-              value={formData.position || ''}
-              onChange={handleChange}
-            />
+            <label htmlFor="position">Position *</label>
+            <input type="text" id="position" name="position" value={formData.position || ''} onChange={handleChange} required />
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="status">Status</label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status || 'applied'}
-                onChange={handleChange}
-              >
+              <select id="status" name="status" value={formData.status || 'applied'} onChange={handleChange}>
                 <option value="applied">Applied</option>
                 <option value="interview">Interview</option>
                 <option value="offer">Offer</option>
@@ -315,12 +647,62 @@ export default function ApplicationDetail() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="appliedDate">Applied Date</label>
+              <label htmlFor="appliedDate">Applied Date *</label>
               <input
                 type="date"
                 id="appliedDate"
                 name="appliedDate"
                 value={formData.appliedDate || ''}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="location">Location</label>
+              <input type="text" id="location" name="location" value={formData.location || ''} onChange={handleChange} />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="salary">Salary</label>
+              <input
+                type="text"
+                id="salary"
+                name="salary"
+                value={formData.salary || ''}
+                onChange={handleChange}
+                placeholder="e.g., $100k - $120k"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="jobUrl">Job URL</label>
+            <input
+              type="url"
+              id="jobUrl"
+              name="jobUrl"
+              value={formData.jobUrl || ''}
+              onChange={handleChange}
+              placeholder="https://..."
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="contactName">Contact Name</label>
+              <input type="text" id="contactName" name="contactName" value={formData.contactName || ''} onChange={handleChange} />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="contactEmail">Contact Email</label>
+              <input
+                type="email"
+                id="contactEmail"
+                name="contactEmail"
+                value={formData.contactEmail || ''}
                 onChange={handleChange}
               />
             </div>
@@ -340,11 +722,18 @@ export default function ApplicationDetail() {
 
             <div className="form-group">
               <label htmlFor="offerDate">Offer Date</label>
+              <input type="date" id="offerDate" name="offerDate" value={formData.offerDate || ''} onChange={handleChange} />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="rejectedDate">Rejected Date</label>
               <input
                 type="date"
-                id="offerDate"
-                name="offerDate"
-                value={formData.offerDate || ''}
+                id="rejectedDate"
+                name="rejectedDate"
+                value={formData.rejectedDate || ''}
                 onChange={handleChange}
               />
             </div>
@@ -379,7 +768,7 @@ export default function ApplicationDetail() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="interviewLink">Interview Link (Zoom/Meeting)</label>
+                <label htmlFor="interviewLink">Interview Link</label>
                 <input
                   type="url"
                   id="interviewLink"
@@ -392,6 +781,35 @@ export default function ApplicationDetail() {
             </div>
           )}
 
+          <div className="form-section">
+            <h4>Job Details</h4>
+            <p className="section-description">Provide detailed information about the job position.</p>
+
+            <div className="form-group">
+              <label htmlFor="jobDescription">Job Description</label>
+              <textarea
+                id="jobDescription"
+                name="jobDescription"
+                value={formData.jobDescription || ''}
+                onChange={handleChange}
+                rows={6}
+                placeholder="Paste the full job description here..."
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="requirements">Requirements & Qualifications</label>
+              <textarea
+                id="requirements"
+                name="requirements"
+                value={formData.requirements || ''}
+                onChange={handleChange}
+                rows={6}
+                placeholder="List the required skills, experience, and qualifications..."
+              />
+            </div>
+          </div>
+
           <div className="form-group">
             <label htmlFor="notes">Notes</label>
             <textarea
@@ -400,11 +818,88 @@ export default function ApplicationDetail() {
               value={formData.notes || ''}
               onChange={handleChange}
               rows={5}
+              placeholder="Additional notes about this application..."
             />
           </div>
 
+          <div className="form-section">
+            <h3>Documents</h3>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="cv">
+                  <HiDocument className="label-icon" />
+                  CV / Resume
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-generate-doc"
+                  onClick={() => handleGenerateDocument('cv')}
+                  disabled={generating.cv}
+                >
+                  {generating.cv ? 'Generating CV...' : 'Generate CV'}
+                </button>
+                <div className="file-upload-wrapper">
+                  <input
+                    ref={cvFileInputRef}
+                    type="file"
+                    id="cv"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => handleFileChange(e, 'cv')}
+                    disabled={uploadingCv}
+                    className="file-input"
+                  />
+                  <label htmlFor="cv" className="file-upload-label">
+                    <HiCloudUpload className="upload-icon" />
+                    <span>{uploadingCv ? 'Uploading...' : cvFile ? cvFile.name : 'Choose CV File (PDF, DOC, DOCX)'}</span>
+                  </label>
+                </div>
+                {renderVersionList('cv', formData.cvVersions)}
+                {renderDirectFile('cv', formData.cvUrl, cvFile?.name, hasCvVersions)}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="coverLetter">
+                  <HiDocument className="label-icon" />
+                  Cover Letter
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-generate-doc"
+                  onClick={() => handleGenerateDocument('coverLetter')}
+                  disabled={generating.coverLetter}
+                >
+                  {generating.coverLetter ? 'Generating Cover Letter...' : 'Generate Cover Letter'}
+                </button>
+                <div className="file-upload-wrapper">
+                  <input
+                    ref={coverLetterFileInputRef}
+                    type="file"
+                    id="coverLetter"
+                    accept=".pdf,.doc,.docx"
+                    onChange={(e) => handleFileChange(e, 'coverLetter')}
+                    disabled={uploadingCoverLetter}
+                    className="file-input"
+                  />
+                  <label htmlFor="coverLetter" className="file-upload-label">
+                    <HiCloudUpload className="upload-icon" />
+                    <span>
+                      {uploadingCoverLetter
+                        ? 'Uploading...'
+                        : coverLetterFile
+                          ? coverLetterFile.name
+                          : 'Choose Cover Letter (PDF, DOC, DOCX)'}
+                    </span>
+                  </label>
+                </div>
+                {renderVersionList('coverLetter', formData.coverLetterVersions)}
+                {renderDirectFile('coverLetter', formData.coverLetterUrl, coverLetterFile?.name, hasCoverVersions)}
+              </div>
+            </div>
+          </div>
+
           <div className="form-actions">
-            <button type="button" onClick={() => setEditing(false)} className="btn btn-secondary">
+            <button type="button" onClick={cancelEditing} className="btn btn-secondary">
               <HiX className="btn-icon" />
               <span>Cancel</span>
             </button>
@@ -417,7 +912,6 @@ export default function ApplicationDetail() {
       ) : (
         <div className="detail-content">
           <div className="detail-card">
-
             <div className="detail-section">
               <h3>Application Details</h3>
               <div className="detail-grid">
@@ -429,44 +923,42 @@ export default function ApplicationDetail() {
                   <span className="value">{formatDateOnlyForDisplay(application.appliedDate)}</span>
                 </div>
                 {application.interviewDate && (
-                  <>
-                    <div className="detail-item">
-                      <span className="label">
-                        <HiCalendar className="label-icon" />
-                        Interview Date
-                      </span>
-                      <span className="value">{formatDateOnlyForDisplay(application.interviewDate)}</span>
-                    </div>
-                    {application.interviewTime && (
-                      <div className="detail-item">
-                        <span className="label">
-                          <HiClock className="label-icon" />
-                          Interview Time
-                        </span>
-                        <span className="value">{application.interviewTime}</span>
-                      </div>
-                    )}
-                    {application.interviewPlace && (
-                      <div className="detail-item">
-                        <span className="label">
-                          <HiLocationMarker className="label-icon" />
-                          Interview Place
-                        </span>
-                        <span className="value">{application.interviewPlace}</span>
-                      </div>
-                    )}
-                    {application.interviewLink && (
-                      <div className="detail-item">
-                        <span className="label">
-                          <HiVideoCamera className="label-icon" />
-                          Interview Link
-                        </span>
-                        <a href={application.interviewLink} target="_blank" rel="noopener noreferrer" className="value">
-                          Join Interview (Zoom/Meeting)
-                        </a>
-                      </div>
-                    )}
-                  </>
+                  <div className="detail-item">
+                    <span className="label">
+                      <HiCalendar className="label-icon" />
+                      Interview Date
+                    </span>
+                    <span className="value">{formatDateOnlyForDisplay(application.interviewDate)}</span>
+                  </div>
+                )}
+                {application.interviewTime && (
+                  <div className="detail-item">
+                    <span className="label">
+                      <HiClock className="label-icon" />
+                      Interview Time
+                    </span>
+                    <span className="value">{application.interviewTime}</span>
+                  </div>
+                )}
+                {application.interviewPlace && (
+                  <div className="detail-item">
+                    <span className="label">
+                      <HiLocationMarker className="label-icon" />
+                      Interview Place
+                    </span>
+                    <span className="value">{application.interviewPlace}</span>
+                  </div>
+                )}
+                {application.interviewLink && (
+                  <div className="detail-item">
+                    <span className="label">
+                      <HiVideoCamera className="label-icon" />
+                      Interview Link
+                    </span>
+                    <a href={application.interviewLink} target="_blank" rel="noopener noreferrer" className="value">
+                      Join Interview
+                    </a>
+                  </div>
                 )}
                 {application.offerDate && (
                   <div className="detail-item">
@@ -475,6 +967,15 @@ export default function ApplicationDetail() {
                       Offer Date
                     </span>
                     <span className="value">{formatDateOnlyForDisplay(application.offerDate)}</span>
+                  </div>
+                )}
+                {application.rejectedDate && (
+                  <div className="detail-item">
+                    <span className="label">
+                      <HiCalendar className="label-icon" />
+                      Rejected Date
+                    </span>
+                    <span className="value">{formatDateOnlyForDisplay(application.rejectedDate)}</span>
                   </div>
                 )}
                 {application.location && (
@@ -537,6 +1038,24 @@ export default function ApplicationDetail() {
               </div>
             )}
 
+            {(application.jobDescription || application.requirements) && (
+              <div className="detail-section">
+                <h3>Job Details</h3>
+                {application.jobDescription && (
+                  <div className="text-block">
+                    <h4>Job Description</h4>
+                    <p className="notes">{application.jobDescription}</p>
+                  </div>
+                )}
+                {application.requirements && (
+                  <div className="text-block">
+                    <h4>Requirements & Qualifications</h4>
+                    <p className="notes">{application.requirements}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {application.notes && (
               <div className="detail-section">
                 <h3>Notes</h3>
@@ -546,7 +1065,7 @@ export default function ApplicationDetail() {
 
             <div className="detail-section">
               <h3>Documents</h3>
-              <p className="section-description">Generate tailored documents or download existing files</p>
+              <p className="section-description">Generate tailored documents or download existing files.</p>
               <div className="document-actions">
                 <button
                   type="button"
@@ -565,65 +1084,15 @@ export default function ApplicationDetail() {
                   {generating.coverLetter ? 'Generating Cover Letter...' : 'Generate Cover Letter'}
                 </button>
               </div>
-              {(() => {
-                const hasCvVersions = (application.cvVersions?.length ?? 0) > 0;
-                const hasCoverVersions = (application.coverLetterVersions?.length ?? 0) > 0;
-                if (!hasCvVersions && !hasCoverVersions && !application.cvUrl && !application.coverLetterUrl) {
-                  return null;
-                }
-                return (
-                <>
-                  {hasCvVersions && (
-                    <div className="documents-grid">
-                      {(application.cvVersions ?? []).map(version => (
-                        <div key={`cv-${version.version}`} className="document-card">
-                          <div className="document-icon-wrapper">
-                            <HiDocument className="document-icon" />
-                          </div>
-                          <div className="document-content">
-                            <h4>Generated CV {version.label}</h4>
-                            <p>{new Date(version.createdAt).toLocaleString()} • {version.source}</p>
-                            <span className="document-url">{version.url.substring(0, 50)}...</span>
-                          </div>
-                          <div className="document-actions-inline">
-                            <a href={version.url} target="_blank" rel="noopener noreferrer" className="download-icon">
-                              <HiDownload />
-                            </a>
-                            <button type="button" className="delete-icon" onClick={() => handleDeleteVersion('cv', version)}>
-                              <HiX />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {hasCoverVersions && (
-                    <div className="documents-grid">
-                      {(application.coverLetterVersions ?? []).map(version => (
-                        <div key={`cover-${version.version}`} className="document-card">
-                          <div className="document-icon-wrapper">
-                            <HiDocument className="document-icon" />
-                          </div>
-                          <div className="document-content">
-                            <h4>Generated Cover Letter {version.label}</h4>
-                            <p>{new Date(version.createdAt).toLocaleString()} • {version.source}</p>
-                            <span className="document-url">{version.url.substring(0, 50)}...</span>
-                          </div>
-                          <div className="document-actions-inline">
-                            <a href={version.url} target="_blank" rel="noopener noreferrer" className="download-icon">
-                              <HiDownload />
-                            </a>
-                            <button type="button" className="delete-icon" onClick={() => handleDeleteVersion('coverLetter', version)}>
-                              <HiX />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-                );
-              })()}
+              {renderVersionList('cv', application.cvVersions)}
+              {renderDirectFile('cv', application.cvUrl, 'Uploaded CV', (application.cvVersions?.length ?? 0) > 0)}
+              {renderVersionList('coverLetter', application.coverLetterVersions)}
+              {renderDirectFile(
+                'coverLetter',
+                application.coverLetterUrl,
+                'Uploaded Cover Letter',
+                (application.coverLetterVersions?.length ?? 0) > 0
+              )}
             </div>
 
             <div className="detail-meta">
@@ -636,4 +1105,3 @@ export default function ApplicationDetail() {
     </div>
   );
 }
-
