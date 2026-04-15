@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+env:
+  ACTIONS_STEP_DEBUG: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -13,11 +17,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Show Node & NPM versions
+        run: |
+          node -v
+          npm -v
+
       - name: Install dependencies
-        run: npm install
+        run: |
+          set -ex
+          npm install
 
       - name: Build
-        run: npm run build
+        run: |
+          set -ex
+          npm run build
+
+      - name: List build folder
+        run: |
+          set -ex
+          ls -la
+          ls -la build || echo "NO BUILD FOLDER"
+          ls -la dist || echo "NO DIST FOLDER"
 
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -27,9 +47,13 @@ jobs:
           aws-region: ca-central-1
 
       - name: Deploy to S3
-        run: aws s3 sync build/ s3://ctrackr-website-prod --delete
+        run: |
+          set -ex
+          aws s3 sync build/ s3://ctrackr-website-prod --delete
 
       - name: Invalidate CloudFront
-        run: aws cloudfront create-invalidation \
-          --distribution-id E3OJLQS0UXAUC5 \
-          --paths "/*"
+        run: |
+          set -ex
+          aws cloudfront create-invalidation \
+            --distribution-id E3OJLQS0UXAUC5 \
+            --paths "/*"
