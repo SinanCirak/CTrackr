@@ -17,7 +17,7 @@ const MAX_ITEMS = {
   experience: 4,
   achievements: 4,
   education: 3,
-  certifications: 6,
+  certifications: 10,
   projects: 3,
   languages: 6
 };
@@ -713,7 +713,7 @@ function generateCVPrompt(userProfile, jobApplication, haikuPrep) {
         `${edu.degree} | ${edu.field} | ${edu.institution} | ${edu.location || ''} | ${edu.startDate} | ${edu.endDate || ''} | ${edu.current ? 'Present' : ''}`
       )).join('\n') || 'Not provided');
   const certificationsInput = useParsed
-    ? (limitLines(parsed.certificationsText, 4, 1200) || 'Not provided')
+    ? (limitLines(parsed.certificationsText, 7, 1200) || 'Not provided')
     : (certifications.map(cert => (
         `${cert.name} | ${cert.code || ''} | ${cert.issuer || ''} | ${cert.issueDate || ''}`
       )).join('\n') || 'Not provided');
@@ -740,13 +740,11 @@ function generateCVPrompt(userProfile, jobApplication, haikuPrep) {
 Return ONLY valid JSON matching the schema exactly. No markdown, no code fences, no commentary.
 
 HARD CONSTRAINT:
-
 * The final CV must fit within 2 pages.
 * Prioritize relevance over completeness.
 * If needed, REMOVE weaker or less relevant content.
 
 RULES:
-
 * Use ONLY the provided data.
 * Do NOT invent roles, employers, projects, dates, locations, degrees, certifications, skills, or achievements.
 * Keep all string values single-line only.
@@ -754,14 +752,12 @@ RULES:
 * Use direct, specific, professional language.
 
 STRATEGY:
-
 * Optimize for interview selection, not completeness.
 * Emphasize impact, ownership, and real systems built.
 * Prefer strong, concrete examples over broad coverage.
 * Make the candidate sound credible, capable, and worth interviewing.
 
 SECTION RULES:
-
 * experience = paid/professional work only
 * volunteer = unpaid roles only
 * projects = projects only
@@ -770,8 +766,42 @@ SECTION RULES:
 * skills = grouped categories only
 * Never duplicate items across sections
 
-QUALITY RULES:
+EXPERIENCE FALLBACK RULE (IMPROVED):
+* If experience input is empty or "Not provided", check the projects section.
+* If candidate has production-level deployed projects:
+  - Select ONLY ONE most relevant project based on job description and role focus.
+  - DO NOT merge multiple projects into one experience entry.
+* Infer the job title strictly from job description keywords.
+  - Use format: "Independent [Role]" or "Freelance [Role]"
+* Set company to "Independent Projects"
+* Use candidate location if available.
+* Use EXACT start and end dates from the selected project only.
+* DO NOT extend or combine dates across multiple projects.
+* This rule applies ONLY when experience input is empty or "Not provided".
+  If any experience data exists in the input, use it directly and skip this fallback entirely.
 
+CRITICAL TRANSFORMATION RULE:
+* Convert project-level work into EXPERIENCE-level responsibilities:
+  - Focus on system design, architecture, deployment, infrastructure, integrations
+  - Do NOT describe UI details unless role requires frontend
+  - Do NOT copy or rephrase project bullets directly
+  - Do NOT duplicate wording from projects section
+
+BULLET RULES (EXPERIENCE):
+* Max 4 bullets
+* Each bullet must represent a distinct responsibility
+* Emphasize responsibilities relevant to the target role:
+  - For cloud/devops: infrastructure, deployment, security, automation
+  - For backend: APIs, data flow, integrations, system architecture
+  - For frontend: component design, performance, user-facing systems
+  - Always prefer system-level impact over feature descriptions
+* Avoid:
+  - Feature-level descriptions
+  - Generic task descriptions
+  - Repetitive verbs
+  - Listing tools without context
+
+QUALITY RULES:
 * Summary: 3–4 sentences max
 * Include at least 2 job-relevant keywords
 * Focus on alignment with the role
@@ -781,31 +811,38 @@ QUALITY RULES:
 * Each bullet must add new information
 
 IMPACT RULES:
+* Prefer: systems built, tools used, outcomes enabled
+* Highlight: automation, scalability, reliability, performance, or system capability
+* If metrics are not provided, focus on functional impact
 
-* Prefer: systems built, tools used, outcomes achieved
-* Highlight: automation, scalability, reliability, performance, or user impact when applicable
-* If metrics are not provided, focus on functional impact (what improved, what was enabled)
+CERTIFICATION RULE:
+* Include ALL certifications provided in the input.
+* If 2-page limit is exceeded, remove certifications in this priority order:
+  1. First remove: Entry-level or foundational certifications 
+     (e.g., Cloud Practitioner, Azure Fundamentals, similar intro-level certs)
+  2. Then remove: Certifications unrelated to the target role
+     (e.g., remove cloud certs for a frontend role, remove networking certs for a data role)
+  3. Never remove: Certifications that directly match the target role keywords
+  4. Never remove: The most advanced certification in any given technology track
+* When in doubt, keep certifications — they add credibility.
 
 COMPRESSION RULES (CRITICAL FOR 2 PAGES):
-
 * Keep bullets concise (1 line each)
 * Remove weak, generic, or redundant bullets
 * Limit to:
-
-  * Max 4 experience entries
-  * Max 4 projects (choose strongest)
-  * Max 6–8 skill categories (only relevant)
+  - Max 4 experience entries
+  - Max 4 projects (choose strongest)
+  - Max 6–8 skill categories
 * Prioritize recent and relevant content
 
 POSITIONING:
-
-* Align tone with the job level (junior, mid, etc.)
-* Emphasize strengths that match the role focus
-* Make the candidate sound like someone worth interviewing, not overqualified or exaggerated
+* Align tone with the job level
+* Emphasize strengths matching role focus
+* Avoid exaggeration or senior-level claims without evidence
 
 FINAL CHECK:
-
 * No duplicate entries across sections
+* Experience ≠ Projects duplication
 * Volunteer not included in experience
 * Projects not included in experience
 * JSON is valid
@@ -896,7 +933,7 @@ Requirements: ${requirements}
 Keywords: ${keywords.join(', ') || 'Not provided'}
 Role Focus: ${roleFocus}
 
-Return ONLY JSON.`;
+Return ONLY JSON.`
 }
 
 function generateCoverLetterPrompt(userProfile, jobApplication, haikuPrep) {

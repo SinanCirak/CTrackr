@@ -109,33 +109,39 @@ export default function Applications() {
     }
   }
 
+  const baseFiltered = useMemo(() => {const baseFiltered = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const normalizeDate = (v: string) => v.trim().replace(/[/.]/g, '-');
+  
+    return applications.filter((app) => {
+      if (
+        normalizedSearch &&
+        !app.company.toLowerCase().includes(normalizedSearch) &&
+        !app.position.toLowerCase().includes(normalizedSearch)
+      ) {
+        return false;
+      }
+  
+      const appliedTime = dateOnlyToBoundaryMs(app.appliedDate, false);
+      const fromTime = dateOnlyToBoundaryMs(normalizeDate(dateFrom), false);
+      const toTime = dateOnlyToBoundaryMs(normalizeDate(dateTo), true);
+  
+      return appliedTime >= fromTime && appliedTime <= toTime;
+    });
+  }, [applications, searchTerm, dateFrom, dateTo]);
+
   const statusCounts = useMemo(() => {
-    return applications.reduce<Record<string, number>>((acc, app) => {
+    return baseFiltered.reduce<Record<string, number>>((acc, app) => {
       acc[app.status] = (acc[app.status] || 0) + 1;
       return acc;
     }, {});
-  }, [applications]);
+  }, [baseFiltered]);
 
   const filteredApplications = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    const normalizeDateFilter = (value: string) => value.trim().replace(/[/.]/g, '-');
-
-    return applications.filter((app) => {
-      const byStatus = filter === 'all' || app.status === filter;
-      if (!byStatus) return false;
-
-      const bySearch = !normalizedSearch
-        || app.company.toLowerCase().includes(normalizedSearch)
-        || app.position.toLowerCase().includes(normalizedSearch);
-      if (!bySearch) return false;
-
-      const appliedTime = dateOnlyToBoundaryMs(app.appliedDate, false);
-      const fromTime = dateOnlyToBoundaryMs(normalizeDateFilter(dateFrom), false);
-      const toTime = dateOnlyToBoundaryMs(normalizeDateFilter(dateTo), true);
-
-      return appliedTime >= fromTime && appliedTime <= toTime;
-    });
-  }, [applications, filter, searchTerm, dateFrom, dateTo]);
+    return filter === 'all'
+      ? baseFiltered
+      : baseFiltered.filter(app => app.status === filter);
+  }, [baseFiltered, filter]);
 
   const handleStatusChange = async (appId: string, newStatus: ApplicationStatus) => {
     try {
