@@ -418,6 +418,10 @@
   line-height: 1.5;
 }
 
+.match-score-copy-full {
+  margin-top: 0.75rem;
+}
+
 .match-score-value {
   min-width: 110px;
   padding: 0.8rem 1rem;
@@ -467,56 +471,14 @@
   border-color: rgba(37, 99, 235, 0.24);
 }
 
-.match-score-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.match-score-badge-neutral {
-  background: #F1F5F9;
-  color: #64748B;
-}
-
-.match-score-badge-low {
-  background: #FEE2E2;
-  color: #B91C1C;
-}
-
-.match-score-badge-caution {
-  background: #FEF3C7;
-  color: #B45309;
-}
-
-.match-score-badge-good {
-  background: #FEF3C7;
-  color: #B45309;
-}
-
-.match-score-badge-strong {
-  background: #DCFCE7;
-  color: #15803D;
-}
-
-.match-score-badge-excellent {
-  background: #DBEAFE;
-  color: #1D4ED8;
-}
-
 .match-score-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  display: block;
   margin-top: 1rem;
 }
 
 .match-score-btn {
-  min-width: 200px;
+  width: 100%;
+  min-width: 0;
   justify-content: center;
 }
 
@@ -525,10 +487,11 @@
   color: #475569;
   font-size: 0.92rem;
   line-height: 1.5;
+  word-break: break-word;
 }
 
 .match-score-text {
-  flex: 1;
+  margin-top: 1rem;
 }
 
 .match-score-guidance {
@@ -537,6 +500,61 @@
   font-size: 0.92rem;
   font-weight: 600;
   line-height: 1.5;
+}
+
+.match-score-legend {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.match-score-legend-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  font-size: 0.84rem;
+}
+
+.match-score-legend-range {
+  font-weight: 700;
+}
+
+.match-score-legend-label {
+  line-height: 1.35;
+}
+
+.match-score-legend-item-low {
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: #B91C1C;
+}
+
+.match-score-legend-item-caution {
+  background: #FFF7ED;
+  border-color: #FED7AA;
+  color: #C2410C;
+}
+
+.match-score-legend-item-good {
+  background: #FFFBEB;
+  border-color: #FDE68A;
+  color: #B45309;
+}
+
+.match-score-legend-item-strong {
+  background: #F0FDF4;
+  border-color: #BBF7D0;
+  color: #15803D;
+}
+
+.match-score-legend-item-excellent {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1D4ED8;
 }
 
 .uploaded-file-info {
@@ -640,8 +658,8 @@
     width: 100%;
   }
 
-  .match-score-badge {
-    width: 100%;
+  .match-score-legend {
+    grid-template-columns: 1fr;
   }
 
   .form-actions-buttons {

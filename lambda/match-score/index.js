@@ -214,6 +214,21 @@ HARD GAP RULE:
 
 - This must significantly limit the final score.
 
+SCORE ADJUSTMENT RULE:
+
+- If the candidate lacks direct experience in the core responsibility,
+  the score should fall in the lower half of the partial fit range (55–62),
+  not at the upper boundary.
+
+- Avoid placing such candidates at the edge of a higher band.
+
+EDGE SCORE RULE:
+
+- Do not place the score at the upper boundary of a band (e.g., 69, 84)
+  if there is a clear core experience gap.
+
+- Use mid or lower values within the band instead.
+
 SCORING LOGIC:
 
 - Strong technical alignment + limited experience depth → partial fit (mid-range)

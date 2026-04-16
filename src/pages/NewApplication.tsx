@@ -92,6 +92,13 @@ export default function NewApplication() {
     };
   };
   const matchScoreMeta = getMatchScoreMeta(matchScore);
+  const matchScoreLegend = [
+    { tone: 'low', range: '0-49', label: 'Do Not Apply' },
+    { tone: 'caution', range: '50-64', label: 'Low Priority' },
+    { tone: 'good', range: '65-74', label: 'Apply' },
+    { tone: 'strong', range: '75-84', label: 'Strong Candidate' },
+    { tone: 'excellent', range: '85-100', label: 'Excellent Match' },
+  ];
 
   const buildVersionEntry = (fileUrl: string, fileKey: string | undefined, version: number, source: 'generated' | 'uploaded'): DocumentVersion => ({
     version,
@@ -1062,19 +1069,17 @@ export default function NewApplication() {
             <div>
               <span className="match-score-eyebrow">Match Score</span>
               <h4>How well your profile matches this role</h4>
-              <p className="match-score-copy">
-                If job data is fetched from a URL, the score is calculated automatically. If you enter details manually, use the button to calculate it.
-              </p>
             </div>
             <div className="match-score-display">
               <div className={`match-score-value ${matchScore !== null ? 'has-score' : ''} match-score-value-${matchScoreMeta.tone}`}>
                 {calculatingMatch ? '...' : matchScore !== null ? `${matchScore}/100` : '--/100'}
               </div>
-              <span className={`match-score-badge match-score-badge-${matchScoreMeta.tone}`}>
-                {calculatingMatch ? 'Calculating' : matchScoreMeta.label}
-              </span>
             </div>
           </div>
+
+          <p className="match-score-copy match-score-copy-full">
+            If job data is fetched from a URL, the score is calculated automatically. If you enter details manually, use the button to calculate it.
+          </p>
 
           <div className="match-score-actions">
             <button
@@ -1086,10 +1091,20 @@ export default function NewApplication() {
               <HiSparkles className="btn-icon" />
               <span>{calculatingMatch ? 'Calculating...' : 'Calculate Match'}</span>
             </button>
-            <div className="match-score-text">
-              <p className="match-score-guidance">{matchScoreMeta.guidance}</p>
-              {matchSummary && <p className="match-score-summary">{matchSummary}</p>}
-            </div>
+          </div>
+
+          <div className="match-score-text">
+            <p className="match-score-guidance">{matchScoreMeta.guidance}</p>
+            {matchSummary && <p className="match-score-summary">{matchSummary}</p>}
+          </div>
+
+          <div className="match-score-legend" aria-label="Match score ranges">
+            {matchScoreLegend.map(item => (
+              <div key={item.range} className={`match-score-legend-item match-score-legend-item-${item.tone}`}>
+                <span className="match-score-legend-range">{item.range}</span>
+                <span className="match-score-legend-label">{item.label}</span>
+              </div>
+            ))}
           </div>
         </div>
 
