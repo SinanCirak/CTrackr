@@ -11,6 +11,27 @@ const MAX_FIELD_CHARS = {
   requirements: 5000,
 };
 
+const toPlainText = (value) => {
+  if (value == null) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(toPlainText).filter(Boolean).join(', ');
+  }
+  if (typeof value === 'object') {
+    return toPlainText(
+      value.name ||
+      value.title ||
+      value.value ||
+      value.text ||
+      value.label ||
+      value['@value']
+    );
+  }
+  return '';
+};
+
 const json = (statusCode, body) => ({
   statusCode,
   headers: {
@@ -20,7 +41,7 @@ const json = (statusCode, body) => ({
   body: JSON.stringify(body),
 });
 
-const normalizeWhitespace = (text) => String(text || '').replace(/\s+/g, ' ').trim();
+const normalizeWhitespace = (text) => toPlainText(text).replace(/\s+/g, ' ').trim();
 
 const limitText = (text, maxChars) => {
   const cleaned = normalizeWhitespace(text);
@@ -150,6 +171,15 @@ const stringifySalary = (value) => {
   return '';
 };
 
+const dedupeCommaParts = (value) => {
+  const parts = normalizeWhitespace(value)
+    .split(',')
+    .map(part => normalizeWhitespace(part))
+    .filter(Boolean);
+
+  return parts.filter((part, index) => parts.findIndex(item => item.toLowerCase() === part.toLowerCase()) === index).join(', ');
+};
+
 const extractEmail = (html) => {
   const mailtoMatch = String(html || '').match(/mailto:([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
   if (mailtoMatch?.[1]) return mailtoMatch[1];
@@ -173,6 +203,36 @@ const findSection = (text, headings) => {
   const regex = new RegExp(`(?:^|\\n)\\s*(?:${headingPattern})\\s*[:\\-]?\\s*([\\s\\S]{80,4000}?)(?=\\n\\s*[A-Z][A-Za-z /&]{2,40}\\s*[:\\-]?\\s|$)`, 'i');
   const match = safeText.match(regex);
   return normalizeWhitespace(match?.[1] || '');
+};
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const splitDescriptionAndRequirements = (text) => {
+  const source = String(text || '');
+  if (!source) {
+    return { description: '', requirements: '' };
+  }
+
+  const requirementHeadings = [
+    'Requirements',
+    'Qualifications',
+    'What you bring',
+    'Who you are',
+    'Who This Role Is For',
+    'What We Are Looking For',
+    'Nice to Have',
+  ];
+
+  const headingPattern = requirementHeadings.map(escapeRegExp).join('|');
+  const match = source.match(new RegExp(`\\b(${headingPattern})\\b`, 'i'));
+  if (!match || match.index == null) {
+    return { description: normalizeWhitespace(source), requirements: '' };
+  }
+
+  return {
+    description: normalizeWhitespace(source.slice(0, match.index)),
+    requirements: normalizeWhitespace(source.slice(match.index)),
+  };
 };
 
 const titleToCompany = (title) => {
@@ -235,10 +295,10 @@ exports.handler = async (event) => {
     const metaDescription = extractMetaContent(html, 'description') || extractMetaContent(html, 'og:description');
 
     const companyFromJsonLd = normalizeWhitespace(
-      getNestedValue(jsonLd, [['hiringOrganization', 'name'], ['hiringOrganization']])
+      getNestedValue(jsonLd, [['hiringOrganization', 'name'], ['hiringOrganization', 'legalName'], ['hiringOrganization']])
     );
     const positionFromJsonLd = normalizeWhitespace(getNestedValue(jsonLd, [['title'], ['name']]));
-    const locationFromJsonLd = normalizeWhitespace(
+    const locationFromJsonLd = dedupeCommaParts(
       [
         getNestedValue(jsonLd, [['jobLocation', 'address', 'addressLocality']]),
         getNestedValue(jsonLd, [['jobLocation', 'address', 'addressRegion']]),
@@ -282,13 +342,17 @@ exports.handler = async (event) => {
       extractLabelValue(pageText, ['contact', 'recruiter', 'hiring manager']),
       MAX_FIELD_CHARS.contactName
     );
+    const splitFromDescription = splitDescriptionAndRequirements(descriptionFromJsonLd);
+    const pageRequirements = findSection(pageText, ['Requirements', 'Qualifications', 'What you bring', 'Who you are', 'Who This Role Is For', 'What We Are Looking For', 'Nice to Have']);
+    const pageDescription = findSection(pageText, ['Description', 'About the job', 'Job description', 'About this role', 'Responsibilities']);
+
     const requirements = limitText(
-      requirementsFromJsonLd || findSection(pageText, ['Requirements', 'Qualifications', 'What you bring', 'Who you are']),
+      requirementsFromJsonLd || pageRequirements || splitFromDescription.requirements,
       MAX_FIELD_CHARS.requirements
     );
     const jobDescription = limitText(
-      descriptionFromJsonLd ||
-        findSection(pageText, ['Description', 'About the job', 'Job description', 'About this role', 'Responsibilities']) ||
+      splitFromDescription.description ||
+        pageDescription ||
         metaDescription,
       MAX_FIELD_CHARS.jobDescription
     );

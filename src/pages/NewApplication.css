@@ -148,6 +148,13 @@
   white-space: nowrap;
 }
 
+.job-info-status {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.875rem;
+  color: #6366F1;
+  font-weight: 500;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

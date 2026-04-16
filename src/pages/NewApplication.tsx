@@ -16,6 +16,7 @@ export default function NewApplication() {
   const [uploadingCv, setUploadingCv] = useState(false);
   const [uploadingCoverLetter, setUploadingCoverLetter] = useState(false);
   const [fetchingJobInfo, setFetchingJobInfo] = useState(false);
+  const [jobInfoStatus, setJobInfoStatus] = useState<string | null>(null);
   const [generating, setGenerating] = useState({ cv: false, coverLetter: false });
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
@@ -249,6 +250,15 @@ export default function NewApplication() {
     }
   };
 
+  const cleanAutofillValue = (value: string | undefined, maxLength: number) => {
+    const cleaned = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!cleaned) return '';
+    if (cleaned === '[object Object]') return '';
+    if (cleaned.toLowerCase().startsWith('job description:') && maxLength < 500) return '';
+    if (cleaned.length > maxLength) return '';
+    return cleaned;
+  };
+
   const handleGetInformation = async () => {
     if (!formData.jobUrl || !formData.jobUrl.trim()) {
       setError('Please enter a job URL first.');
@@ -257,23 +267,27 @@ export default function NewApplication() {
 
     try {
       setFetchingJobInfo(true);
+      setJobInfoStatus('Getting information from the job post...');
       setError(null);
 
       const result = await extractJobInformation(formData.jobUrl.trim());
+      setJobInfoStatus('Parsing and filling the form...');
       setFormData(prev => ({
         ...prev,
         jobUrl: result.sourceUrl || prev.jobUrl,
-        company: result.company || prev.company,
-        position: result.position || prev.position,
-        location: result.location || prev.location,
-        salary: result.salary || prev.salary,
-        contactEmail: result.contactEmail || prev.contactEmail,
-        contactName: result.contactName || prev.contactName,
-        jobDescription: result.jobDescription || prev.jobDescription,
-        requirements: result.requirements || prev.requirements,
+        company: cleanAutofillValue(result.company, 160) || prev.company,
+        position: cleanAutofillValue(result.position, 220) || prev.position,
+        location: cleanAutofillValue(result.location, 220) || prev.location,
+        salary: cleanAutofillValue(result.salary, 160) || prev.salary,
+        contactEmail: cleanAutofillValue(result.contactEmail, 160) || prev.contactEmail,
+        contactName: cleanAutofillValue(result.contactName, 160) || prev.contactName,
+        jobDescription: cleanAutofillValue(result.jobDescription, 8000) || prev.jobDescription,
+        requirements: cleanAutofillValue(result.requirements, 5000) || prev.requirements,
       }));
+      setJobInfoStatus(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to get job information');
+      setJobInfoStatus(null);
     } finally {
       setFetchingJobInfo(false);
     }
@@ -487,6 +501,7 @@ export default function NewApplication() {
               <span>{fetchingJobInfo ? 'Getting...' : 'Get Information'}</span>
             </button>
           </div>
+          {jobInfoStatus && <p className="job-info-status">{jobInfoStatus}</p>}
         </div>
 
         <div className="form-row">
