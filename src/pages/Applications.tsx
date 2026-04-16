@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { HiPlusCircle, HiLocationMarker, HiCalendar, HiBriefcase, HiChevronDown, HiDocument } from 'react-icons/hi';
+import { HiPlusCircle, HiLocationMarker, HiCalendar, HiBriefcase, HiChevronDown, HiDocument, HiDownload } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
 import { listApplications, updateApplication } from '../utils/api';
 import { dateOnlyToBoundaryMs, formatDateOnlyForDisplay } from '../utils/date';
@@ -156,6 +156,14 @@ export default function Applications() {
   };
 
   const statusOptions: ApplicationStatus[] = ['applied', 'interview', 'offer', 'rejected', 'withdrawn', 'accepted'];
+  const statusLabels: Record<ApplicationStatus, string> = {
+    applied: 'Applied',
+    interview: 'Interview',
+    offer: 'Offer',
+    rejected: 'Rejected',
+    withdrawn: 'Withdrawn',
+    accepted: 'Accepted',
+  };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -167,6 +175,59 @@ export default function Applications() {
       accepted: '#10B981',
     };
     return colors[status] || '#6B7280';
+  };
+
+  const handleExportExcel = () => {
+    const escapeXml = (value: string) =>
+      value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+
+    const rows = filteredApplications.map((app) => `
+      <Row>
+        <Cell><Data ss:Type="String">${escapeXml(app.company)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(app.position)}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(formatDateOnlyForDisplay(app.appliedDate))}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(app.location || '-')}</Data></Cell>
+        <Cell><Data ss:Type="String">${escapeXml(statusLabels[app.status])}</Data></Cell>
+      </Row>
+    `).join('');
+
+    const workbook = `<?xml version="1.0"?>
+      <?mso-application progid="Excel.Sheet"?>
+      <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+        xmlns:o="urn:schemas-microsoft-com:office:office"
+        xmlns:x="urn:schemas-microsoft-com:office:excel"
+        xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+        xmlns:html="http://www.w3.org/TR/REC-html40">
+        <Worksheet ss:Name="Applications">
+          <Table>
+            <Row>
+              <Cell><Data ss:Type="String">Company Name</Data></Cell>
+              <Cell><Data ss:Type="String">Position</Data></Cell>
+              <Cell><Data ss:Type="String">Application Date</Data></Cell>
+              <Cell><Data ss:Type="String">Location</Data></Cell>
+              <Cell><Data ss:Type="String">Application Status</Data></Cell>
+            </Row>
+            ${rows}
+          </Table>
+        </Worksheet>
+      </Workbook>`;
+
+    const blob = new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateStamp = new Date().toISOString().slice(0, 10);
+
+    link.href = url;
+    link.download = `applications-${filter}-${dateStamp}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   if (loading && applications.length === 0) {
@@ -190,6 +251,15 @@ export default function Applications() {
             <HiPlusCircle className="btn-icon" />
             <span>Add New Application</span>
           </Link>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleExportExcel}
+            disabled={filteredApplications.length === 0}
+          >
+            <HiDownload className="btn-icon" />
+            <span>Export Excel</span>
+          </button>
         </div>
       </div>
 
