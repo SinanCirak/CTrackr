@@ -31,7 +31,7 @@ terraform {
     dynamodb_table = "terraform-locks"
   }
 }
-#Test Terraform 4 removing tfvars from gitignore and adding default value to domain_name variable
+#Test Terraform 5 added auto approve
 # DynamoDB Table for Job Applications
 resource "aws_dynamodb_table" "applications" {
   name         = "${var.project_name}-applications"
