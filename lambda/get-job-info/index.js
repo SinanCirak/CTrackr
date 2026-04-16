@@ -43,8 +43,23 @@ const json = (statusCode, body) => ({
 
 const normalizeWhitespace = (text) => toPlainText(text).replace(/\s+/g, ' ').trim();
 
+const normalizeLines = (text) =>
+  String(text || '')
+    .replace(/\r/g, '')
+    .replace(/\u2022/g, '\n- ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
 const limitText = (text, maxChars) => {
   const cleaned = normalizeWhitespace(text);
+  if (!cleaned) return '';
+  if (cleaned.length <= maxChars) return cleaned;
+  return `${cleaned.slice(0, Math.max(0, maxChars - 3))}...`;
+};
+
+const limitFormattedText = (text, maxChars) => {
+  const cleaned = normalizeLines(text);
   if (!cleaned) return '';
   if (cleaned.length <= maxChars) return cleaned;
   return `${cleaned.slice(0, Math.max(0, maxChars - 3))}...`;
@@ -68,6 +83,8 @@ const stripTags = (html) =>
       .replace(/<\/p>/gi, '\n')
       .replace(/<\/div>/gi, '\n')
       .replace(/<\/li>/gi, '\n')
+      .replace(/<\/ul>/gi, '\n')
+      .replace(/<\/ol>/gi, '\n')
       .replace(/<[^>]+>/g, ' ')
   );
 
@@ -189,10 +206,38 @@ const extractEmail = (html) => {
 
 const extractLabelValue = (text, labelPatterns) => {
   for (const label of labelPatterns) {
-    const pattern = new RegExp(`${label}\\s*[:\\-]?\\s*([^\\n|]{2,200})`, 'i');
+    const pattern = new RegExp(`${label}\\s*[:\\-]?\\s*([^\\n|]{2,260})`, 'i');
     const match = String(text || '').match(pattern);
     if (match?.[1]) return normalizeWhitespace(match[1]);
   }
+  return '';
+};
+
+const cleanCompanyName = (value) => {
+  const cleaned = normalizeWhitespace(value)
+    .replace(/^\s*company\s*:\s*/i, '')
+    .replace(/\s+\(.*?constellation.*?\)$/i, '')
+    .replace(/\s+company$/i, '')
+    .trim();
+  return cleaned;
+};
+
+const extractSalaryFromText = (text) => {
+  const source = String(text || '');
+  const labeledMatch = source.match(
+    /(?:expected\s+salary\s+range|salary\s+range|compensation|pay\s+range)\s*[:\-]?\s*([A-Z]{3}\s*\$?\s*[\d,]+(?:\s*[–-]\s*\$?\s*[\d,]+)?(?:[^.\n]{0,120})?)/i
+  );
+  if (labeledMatch?.[1]) {
+    return normalizeWhitespace(labeledMatch[1]);
+  }
+
+  const currencyRangeMatch = source.match(
+    /\b(?:CAD|USD|EUR|GBP)\s*\$?\s*[\d,]+(?:\s*[–-]\s*\$?\s*[\d,]+)(?:\s*(?:base salary|per year|annually|annual|yearly))?/i
+  );
+  if (currencyRangeMatch?.[0]) {
+    return normalizeWhitespace(currencyRangeMatch[0]);
+  }
+
   return '';
 };
 
@@ -235,6 +280,86 @@ const splitDescriptionAndRequirements = (text) => {
   };
 };
 
+const splitIntoSentences = (text) =>
+  normalizeWhitespace(text)
+    .split(/(?<=[.!?])\s+(?=[A-Z])|(?<=\w)\s+(?=(?:Key Responsibilities|Role Overview|Who This Role Is For|Nice to Have|What Makes This Unique|Compensation & Role Details|More About))/g)
+    .map(part => normalizeWhitespace(part))
+    .filter(Boolean);
+
+const toBulletList = (items, maxItems) => {
+  const unique = [];
+  for (const item of items) {
+    const cleaned = normalizeWhitespace(item)
+      .replace(/^(?:[-*]\s*)+/, '')
+      .trim();
+    if (!cleaned) continue;
+    if (unique.find(existing => existing.toLowerCase() === cleaned.toLowerCase())) continue;
+    unique.push(cleaned);
+    if (unique.length >= maxItems) break;
+  }
+  return unique.map(item => `- ${item}`).join('\n');
+};
+
+const extractBulletsAfterHeading = (text, headings, stopHeadings, maxItems = 8) => {
+  const source = String(text || '');
+  if (!source) return '';
+
+  const headingPattern = headings.map(escapeRegExp).join('|');
+  const stopPattern = stopHeadings.map(escapeRegExp).join('|');
+  const regex = new RegExp(`(?:${headingPattern})\\s*[:\\-]?\\s*([\\s\\S]{40,4000}?)(?=(?:${stopPattern})\\b|$)`, 'i');
+  const match = source.match(regex);
+  if (!match?.[1]) return '';
+
+  const segment = match[1];
+  const bullets = splitIntoSentences(segment);
+  return toBulletList(bullets, maxItems);
+};
+
+const removeLeadingMetadata = (text) => {
+  let cleaned = normalizeWhitespace(text);
+  cleaned = cleaned.replace(/^Job Description:\s*/i, '');
+  cleaned = cleaned.replace(/^Company:\s*.*?(?=Location:|Type:|About\s)/i, '');
+  cleaned = cleaned.replace(/^Location:\s*.*?(?=Working arrangements|Type:|About\s)/i, '');
+  cleaned = cleaned.replace(/^Type:\s*.*?(?=About\s|Role Overview)/i, '');
+  cleaned = cleaned.replace(/^Working arrangements\s*[-:]?\s*.*?(?=Type:|About\s|Role Overview)/i, '');
+  return cleaned.trim();
+};
+
+const buildJobDescriptionText = (rawDescription, pageText, metaDescription) => {
+  const source = removeLeadingMetadata(rawDescription || pageText || metaDescription);
+  const overview = extractBulletsAfterHeading(
+    source,
+    ['Role Overview', 'About the job', 'Job description', 'Description', 'About this role'],
+    ['Key Responsibilities', 'Who This Role Is For', 'Requirements', 'Qualifications', 'Nice to Have', 'Compensation & Role Details', 'More About'],
+    5
+  );
+  const responsibilities = extractBulletsAfterHeading(
+    source,
+    ['Key Responsibilities', 'Responsibilities'],
+    ['Who This Role Is For', 'Requirements', 'Qualifications', 'Nice to Have', 'Compensation & Role Details', 'More About'],
+    8
+  );
+
+  if (overview || responsibilities) {
+    return [overview, responsibilities].filter(Boolean).join('\n');
+  }
+
+  return source;
+};
+
+const buildRequirementsText = (rawRequirements, rawDescription, pageText) => {
+  const source = rawRequirements || rawDescription || pageText;
+  const bullets = extractBulletsAfterHeading(
+    source,
+    ['Who This Role Is For', 'Requirements', 'Qualifications', 'What you bring', 'Who you are', 'What We Are Looking For', 'Nice to Have'],
+    ['What Makes This Unique', 'Compensation & Role Details', 'More About', 'Business Unit', 'Scheduled Weekly Hours'],
+    12
+  );
+
+  if (bullets) return bullets;
+  return normalizeWhitespace(source);
+};
+
 const titleToCompany = (title) => {
   const normalized = normalizeWhitespace(title);
   if (!normalized) return '';
@@ -247,6 +372,18 @@ const titleToCompany = (title) => {
       }
     }
   }
+  return '';
+};
+
+const extractCompanyFromDescription = (description) => {
+  const explicitCompany = extractLabelValue(description, ['company', 'organization', 'business unit']);
+  if (explicitCompany) return cleanCompanyName(explicitCompany);
+
+  const aboutMatch = String(description || '').match(/\bAbout\s+([A-Z][A-Za-z0-9&.,'()\-\/ ]{2,120})/i);
+  if (aboutMatch?.[1]) {
+    return cleanCompanyName(aboutMatch[1]);
+  }
+
   return '';
 };
 
@@ -345,23 +482,32 @@ exports.handler = async (event) => {
     const splitFromDescription = splitDescriptionAndRequirements(descriptionFromJsonLd);
     const pageRequirements = findSection(pageText, ['Requirements', 'Qualifications', 'What you bring', 'Who you are', 'Who This Role Is For', 'What We Are Looking For', 'Nice to Have']);
     const pageDescription = findSection(pageText, ['Description', 'About the job', 'Job description', 'About this role', 'Responsibilities']);
+    const combinedDescription = splitFromDescription.description || pageDescription || metaDescription || descriptionFromJsonLd;
+    const companyFromDescription = extractCompanyFromDescription(combinedDescription);
+    const salaryFromText = extractSalaryFromText([pageText, combinedDescription, pageRequirements].filter(Boolean).join('\n'));
 
-    const requirements = limitText(
-      requirementsFromJsonLd || pageRequirements || splitFromDescription.requirements,
+    const requirements = limitFormattedText(
+      buildRequirementsText(
+        requirementsFromJsonLd || pageRequirements || splitFromDescription.requirements,
+        descriptionFromJsonLd,
+        pageText
+      ),
       MAX_FIELD_CHARS.requirements
     );
-    const jobDescription = limitText(
-      splitFromDescription.description ||
-        pageDescription ||
-        metaDescription,
+    const jobDescription = limitFormattedText(
+      buildJobDescriptionText(
+        splitFromDescription.description || descriptionFromJsonLd,
+        pageDescription || pageText,
+        metaDescription
+      ),
       MAX_FIELD_CHARS.jobDescription
     );
 
     return json(200, {
-      company,
+      company: cleanCompanyName(company || companyFromDescription),
       position,
       location,
-      salary,
+      salary: salary || salaryFromText,
       contactEmail,
       contactName,
       jobDescription,

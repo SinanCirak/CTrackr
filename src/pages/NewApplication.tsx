@@ -250,8 +250,11 @@ export default function NewApplication() {
     }
   };
 
-  const cleanAutofillValue = (value: string | undefined, maxLength: number) => {
-    const cleaned = String(value || '').replace(/\s+/g, ' ').trim();
+  const cleanAutofillValue = (value: string | undefined, maxLength: number, preserveLines = false) => {
+    const raw = String(value || '');
+    const cleaned = preserveLines
+      ? raw.replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+      : raw.replace(/\s+/g, ' ').trim();
     if (!cleaned) return '';
     if (cleaned === '[object Object]') return '';
     if (cleaned.toLowerCase().startsWith('job description:') && maxLength < 500) return '';
@@ -281,8 +284,8 @@ export default function NewApplication() {
         salary: cleanAutofillValue(result.salary, 160) || prev.salary,
         contactEmail: cleanAutofillValue(result.contactEmail, 160) || prev.contactEmail,
         contactName: cleanAutofillValue(result.contactName, 160) || prev.contactName,
-        jobDescription: cleanAutofillValue(result.jobDescription, 8000) || prev.jobDescription,
-        requirements: cleanAutofillValue(result.requirements, 5000) || prev.requirements,
+        jobDescription: cleanAutofillValue(result.jobDescription, 8000, true) || prev.jobDescription,
+        requirements: cleanAutofillValue(result.requirements, 5000, true) || prev.requirements,
       }));
       setJobInfoStatus(null);
     } catch (err) {
