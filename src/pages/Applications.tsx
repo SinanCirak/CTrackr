@@ -178,52 +178,27 @@ export default function Applications() {
   };
 
   const handleExportExcel = () => {
-    const escapeXml = (value: string) =>
-      value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const rows = filteredApplications.map((app) => ([
+      escapeCsv(app.company),
+      escapeCsv(app.position),
+      escapeCsv(formatDateOnlyForDisplay(app.appliedDate)),
+      escapeCsv(app.location || '-'),
+      escapeCsv(statusLabels[app.status]),
+    ].join(',')));
 
-    const rows = filteredApplications.map((app) => `
-      <Row>
-        <Cell><Data ss:Type="String">${escapeXml(app.company)}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(app.position)}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(formatDateOnlyForDisplay(app.appliedDate))}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(app.location || '-')}</Data></Cell>
-        <Cell><Data ss:Type="String">${escapeXml(statusLabels[app.status])}</Data></Cell>
-      </Row>
-    `).join('');
+    const csvContent = [
+      'Company Name,Position,Application Date,Location,Application Status',
+      ...rows,
+    ].join('\r\n');
 
-    const workbook = `<?xml version="1.0"?>
-      <?mso-application progid="Excel.Sheet"?>
-      <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-        xmlns:o="urn:schemas-microsoft-com:office:office"
-        xmlns:x="urn:schemas-microsoft-com:office:excel"
-        xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
-        xmlns:html="http://www.w3.org/TR/REC-html40">
-        <Worksheet ss:Name="Applications">
-          <Table>
-            <Row>
-              <Cell><Data ss:Type="String">Company Name</Data></Cell>
-              <Cell><Data ss:Type="String">Position</Data></Cell>
-              <Cell><Data ss:Type="String">Application Date</Data></Cell>
-              <Cell><Data ss:Type="String">Location</Data></Cell>
-              <Cell><Data ss:Type="String">Application Status</Data></Cell>
-            </Row>
-            ${rows}
-          </Table>
-        </Worksheet>
-      </Workbook>`;
-
-    const blob = new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF', csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     const dateStamp = new Date().toISOString().slice(0, 10);
 
     link.href = url;
-    link.download = `applications-${filter}-${dateStamp}.xls`;
+    link.download = `applications-${filter}-${dateStamp}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -251,15 +226,6 @@ export default function Applications() {
             <HiPlusCircle className="btn-icon" />
             <span>Add New Application</span>
           </Link>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleExportExcel}
-            disabled={filteredApplications.length === 0}
-          >
-            <HiDownload className="btn-icon" />
-            <span>Export Excel</span>
-          </button>
         </div>
       </div>
 
@@ -350,6 +316,15 @@ export default function Applications() {
             disabled={!dateFrom && !dateTo}
           >
             Clear
+          </button>
+          <button
+            type="button"
+            className="clear-date-btn export-date-btn"
+            onClick={handleExportExcel}
+            disabled={filteredApplications.length === 0}
+          >
+            <HiDownload className="btn-icon" />
+            <span>Export Excel</span>
           </button>
         </div>
       </div>
