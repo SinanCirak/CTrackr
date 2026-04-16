@@ -31,7 +31,7 @@ terraform {
     dynamodb_table = "terraform-locks"
   }
 }
-#Test Terraform 2
+#Test Terraform 3 removed auto-approve
 # DynamoDB Table for Job Applications
 resource "aws_dynamodb_table" "applications" {
   name         = "${var.project_name}-applications"
