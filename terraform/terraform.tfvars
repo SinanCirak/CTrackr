@@ -1,0 +1,13 @@
+aws_region   = "ca-central-1"
+project_name = "ctrackr"
+environment  = "prod"
+bucket_name  = "ctrackr-website-prod"
+domain_name  = "ctrackr.cirak.ca"
+bedrock_model_id = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+bedrock_haiku_model_id = "anthropic.claude-3-haiku-20240307-v1:0"
+
+# Note: CloudFront certificates must be in us-east-1
+# This is handled automatically by the separate provider in main.tf
+
+
+
