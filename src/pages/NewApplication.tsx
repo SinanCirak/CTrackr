@@ -2,10 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HiPlusCircle, HiX, HiDocument, HiCloudUpload, HiClipboardCheck, HiInformationCircle, HiDownload, HiSparkles } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
-import { createApplication, getUploadUrl, uploadFileToS3, deleteFile, getProfile, extractJobInformation } from '../utils/api';
+import { createApplication, getUploadUrl, uploadFileToS3, deleteFile, getProfile, extractJobInformation, getMatchScore } from '../utils/api';
 import { getTodayDateLocalISO } from '../utils/date';
 import type { CreateApplicationInput, DocumentVersion } from '../types/application';
-import type { UserProfile } from '../types/user';
 import './NewApplication.css';
 
 export default function NewApplication() {
@@ -278,131 +277,15 @@ export default function NewApplication() {
     return match ? match.value : cleaned;
   };
 
-  const getStoredProfile = (): UserProfile | null => {
+  const getStoredProfile = () => {
     try {
       const savedProfile = localStorage.getItem('userProfile');
       if (!savedProfile) return null;
-      return JSON.parse(savedProfile) as UserProfile;
+      return JSON.parse(savedProfile);
     } catch (error) {
       console.error('Failed to load local profile for match score:', error);
       return null;
     }
-  };
-
-  const normalizeKeyword = (value: string) =>
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9+#./-]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-  const extractKeywords = (text: string) => {
-    const normalizedText = normalizeKeyword(text);
-    if (!normalizedText) return [] as string[];
-
-    const phrasePatterns = [
-      'node js',
-      'node.js',
-      'typescript',
-      'javascript',
-      'python',
-      'java',
-      '.net',
-      'c#',
-      'aws',
-      'azure',
-      'gcp',
-      'terraform',
-      'lambda',
-      'api gateway',
-      'dynamodb',
-      's3',
-      'step functions',
-      'sqs',
-      'sns',
-      'opensearch',
-      'elk',
-      'serverless',
-      'microservices',
-      'microservice',
-      'restful apis',
-      'rest api',
-      'ci/cd',
-      'cicd',
-      'devops',
-      'docker',
-      'kubernetes',
-      'sql',
-      'nosql',
-      'react',
-      'frontend',
-      'backend',
-      'cloud',
-      'event driven',
-      'cloud native',
-      'system design',
-      'agile',
-      'leadership',
-      'communication',
-      'computer science',
-      'software engineering',
-      'full stack',
-      'full-stack',
-    ];
-
-    const detectedPhrases = phrasePatterns
-      .filter(phrase => normalizedText.includes(normalizeKeyword(phrase)))
-      .map(phrase => normalizeKeyword(phrase));
-
-    const stopWords = new Set([
-      'the', 'and', 'for', 'with', 'that', 'this', 'from', 'have', 'will', 'your', 'you',
-      'our', 'are', 'but', 'not', 'all', 'can', 'using', 'use', 'into', 'across', 'more',
-      'than', 'plus', 'role', 'team', 'work', 'works', 'about', 'job', 'jobs', 'day',
-      'days', 'week', 'years', 'year', 'new', 'strong', 'good', 'best', 'very', 'such',
-      'should', 'need', 'needed', 'preferred', 'experience', 'developer', 'development',
-      'software', 'engineer', 'engineering', 'application', 'applications', 'salary',
-      'qualifications', 'requirements', 'responsibilities',
-    ]);
-
-    const tokens = normalizedText
-      .split(' ')
-      .map(token => token.trim())
-      .filter(token => token.length >= 3 && !stopWords.has(token));
-
-    return Array.from(new Set([...detectedPhrases, ...tokens]));
-  };
-
-  const buildProfileSearchText = (profile: UserProfile) => {
-    const skillText = [
-      ...(profile.skills || []),
-      ...((profile.skillCategories || []).flatMap(category => [category.category, ...(category.skills || []), category.description || ''])),
-    ].join(' ');
-
-    const experienceText = (profile.experience || [])
-      .flatMap(item => [item.company, item.position, item.location || '', item.description, ...(item.achievements || [])])
-      .join(' ');
-
-    const projectText = (profile.projects || [])
-      .flatMap(item => [item.name, item.description, item.year || '', ...(item.technologies || []), ...(item.achievements || [])])
-      .join(' ');
-
-    const certificationText = (profile.certifications || [])
-      .flatMap(item => [item.name, item.code || '', item.issuer || ''])
-      .join(' ');
-
-    const educationText = (profile.education || [])
-      .flatMap(item => [item.institution, item.degree, item.field, item.location || ''])
-      .join(' ');
-
-    return [
-      profile.summary || '',
-      skillText,
-      experienceText,
-      projectText,
-      certificationText,
-      educationText,
-      profile.parsedProfile?.keywords?.join(' ') || '',
-    ].join(' ');
   };
 
   const calculateMatchScore = async (applicationData: CreateApplicationInput, autoTriggered = false) => {
@@ -432,43 +315,15 @@ export default function NewApplication() {
         return;
       }
 
-      const jobText = [positionText, requirementsText, descriptionText].join(' ');
-      const jobKeywords = extractKeywords(jobText).slice(0, 40);
-      const profileKeywords = new Set(extractKeywords(buildProfileSearchText(profile)));
+      const result = await getMatchScore(profile, applicationData);
+      const summaryParts = [
+        result.summary,
+        ...(result.strengths || []).slice(0, 2).map(item => `Strength: ${item}`),
+        ...(result.gaps || []).slice(0, 1).map(item => `Gap: ${item}`),
+      ].filter(Boolean);
 
-      const matchedKeywords = jobKeywords.filter(keyword => profileKeywords.has(keyword));
-      const coverageBase = jobKeywords.length || 1;
-      const keywordCoverageScore = Math.min(70, Math.round((matchedKeywords.length / coverageBase) * 70));
-
-      const positionKeywords = extractKeywords(positionText).slice(0, 10);
-      const matchedTitleTerms = positionKeywords.filter(keyword => profileKeywords.has(keyword));
-      const titleScore = positionKeywords.length > 0
-        ? Math.min(15, Math.round((matchedTitleTerms.length / positionKeywords.length) * 15))
-        : 0;
-
-      const profileStrengthScore =
-        Math.min((profile.experience || []).length, 4) * 3 +
-        Math.min((profile.projects || []).length, 3) * 2 +
-        Math.min((profile.certifications || []).length, 2) * 2;
-
-      const finalScore = Math.max(0, Math.min(100, keywordCoverageScore + titleScore + Math.min(15, profileStrengthScore)));
-
-      const summaryParts: string[] = [];
-      if (matchedKeywords.length > 0) {
-        summaryParts.push(`Matched keywords: ${matchedKeywords.slice(0, 6).join(', ')}`);
-      }
-      if (matchedKeywords.length < Math.min(jobKeywords.length, 8)) {
-        const missingKeywords = jobKeywords.filter(keyword => !profileKeywords.has(keyword)).slice(0, 4);
-        if (missingKeywords.length > 0) {
-          summaryParts.push(`Missing keywords: ${missingKeywords.join(', ')}`);
-        }
-      }
-      if (summaryParts.length === 0) {
-        summaryParts.push('We compared your profile, skills, projects, and experience against this job posting.');
-      }
-
-      setMatchScore(finalScore);
-      setMatchSummary(summaryParts.join(' • '));
+      setMatchScore(result.score);
+      setMatchSummary(summaryParts.join(' | '));
     } catch (err) {
       console.error('Failed to calculate match score:', err);
       setMatchScore(null);
@@ -1197,3 +1052,4 @@ export default function NewApplication() {
     </div>
   );
 }
+

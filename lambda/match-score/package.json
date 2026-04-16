@@ -1,0 +1,9 @@
+{
+  "name": "match-score",
+  "version": "1.0.0",
+  "description": "Lambda function to calculate job match scores with Bedrock Haiku",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.490.0"
+  }
+}

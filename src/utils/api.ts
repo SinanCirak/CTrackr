@@ -288,6 +288,14 @@ export interface ExtractJobInfoResponse {
   sourceUrl?: string;
 }
 
+export interface MatchScoreResponse {
+  score: number;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  confidence?: 'low' | 'medium' | 'high';
+}
+
 export async function deleteFile(fileKey: string): Promise<void> {
   console.log('deleteFile called with fileKey:', fileKey);
   console.log('API_BASE_URL:', API_BASE_URL);
@@ -361,6 +369,46 @@ export async function extractJobInformation(jobUrl: string): Promise<ExtractJobI
   if (!response.ok) {
     const errorText = await response.text();
     let errorMessage = `Failed to get job information: ${response.statusText}`;
+    try {
+      const errorData = JSON.parse(errorText);
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch (e) {
+      if (errorText) {
+        errorMessage = errorText;
+      }
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+export async function getMatchScore(
+  userProfile: UserProfile,
+  jobApplication: CreateApplicationInput
+): Promise<MatchScoreResponse> {
+  if (USE_MOCK_DATA) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return {
+      score: 72,
+      summary: 'This role looks like a solid overall fit based on your profile, with some room to strengthen role-specific keywords.',
+      strengths: ['Relevant technical foundation', 'Transferable experience', 'Good overall alignment'],
+      gaps: ['Some role-specific terminology may be missing'],
+      confidence: 'medium',
+    };
+  }
+
+  const response = await fetch(`${API_BASE_URL}/match-score`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userProfile, jobApplication }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = `Failed to calculate match score: ${response.statusText}`;
     try {
       const errorData = JSON.parse(errorText);
       errorMessage = errorData.message || errorData.error || errorMessage;
