@@ -235,6 +235,51 @@ const cleanCompanyName = (value) => {
   return cleaned;
 };
 
+const isLikelyCompanyName = (value) => {
+  const cleaned = cleanCompanyName(value);
+  if (!cleaned) return false;
+  if (cleaned.length < 2 || cleaned.length > 120) return false;
+  if (/\b(job description|responsibilities|qualifications|requirements|salary|location|contact|recruiter)\b/i.test(cleaned)) return false;
+  if (/\b(improve|ensure|provide|participate|create|manage|review|monitor|investigate|setup|support|maintain|understanding)\b/i.test(cleaned)) return false;
+  if (/[.!?].{20,}/.test(cleaned)) return false;
+  if (/^[a-z]/.test(cleaned) && cleaned.split(/\s+/).length > 2) return false;
+  return true;
+};
+
+const safeCompanyCandidate = (value) => (isLikelyCompanyName(value) ? cleanCompanyName(value) : '');
+
+const isLikelyContactName = (value) => {
+  const cleaned = normalizeWhitespace(value);
+  if (!cleaned) return false;
+  if (cleaned.length > 80) return false;
+  if (/\b(job description|responsibilities|qualifications|requirements|salary|location|contact us|note to recruiters|unsolicited resumes|directly from a candidate)\b/i.test(cleaned)) return false;
+  if (/@|https?:|\.com\b|\d{3,}/i.test(cleaned)) return false;
+  if ((cleaned.match(/\s+/g) || []).length > 4) return false;
+  return /^[A-Za-z][A-Za-z ,.'-]{1,79}$/.test(cleaned);
+};
+
+const safeContactNameCandidate = (value) => (isLikelyContactName(value) ? normalizeWhitespace(value) : '');
+
+const hostnameToCompany = (url) => {
+  try {
+    const hostname = new URL(String(url || '')).hostname.replace(/^www\./i, '');
+    const parts = hostname.split('.').filter(Boolean);
+    if (parts.length < 2) return '';
+    const root = parts[0];
+    if (!root || /^(jobs|careers|boards|apply|talent|workdayjobs)$/i.test(root)) return '';
+    if (/^[a-z0-9-]{2,40}$/i.test(root)) {
+      return root
+        .split('-')
+        .map(part => part ? `${part.charAt(0).toUpperCase()}${part.slice(1)}` : '')
+        .join(' ')
+        .trim();
+    }
+    return '';
+  } catch (error) {
+    return '';
+  }
+};
+
 const pickPreferredCompanyName = (modelValue, fallbackValue, rawText, titleText) => {
   const modelName = cleanCompanyName(modelValue);
   const fallbackName = cleanCompanyName(fallbackValue);
@@ -452,6 +497,12 @@ const sanitizeContactName = (value) => {
 const sanitizeLocation = (value, url) => {
   const cleaned = normalizeWhitespace(value);
   const urlText = String(url || '');
+  const lower = cleaned.toLowerCase();
+
+  if (/\bremote\b/i.test(cleaned)) {
+    return 'Remote';
+  }
+
   const workdayMatch = urlText.match(/\/job\/([^/]+)\//i);
   if (workdayMatch?.[1]) {
     const segment = workdayMatch[1]
@@ -469,7 +520,43 @@ const sanitizeLocation = (value, url) => {
     return '';
   }
 
-  return cleaned;
+  let normalized = cleaned
+    .replace(/\bOntario\b/gi, 'ON')
+    .replace(/\bQuebec\b/gi, 'QC')
+    .replace(/\bBritish Columbia\b/gi, 'BC')
+    .replace(/\bAlberta\b/gi, 'AB')
+    .replace(/\bManitoba\b/gi, 'MB')
+    .replace(/\bSaskatchewan\b/gi, 'SK')
+    .replace(/\bNova Scotia\b/gi, 'NS')
+    .replace(/\bNew Brunswick\b/gi, 'NB')
+    .replace(/\bNewfoundland and Labrador\b/gi, 'NL')
+    .replace(/\bPrince Edward Island\b/gi, 'PE')
+    .replace(/\bNorthwest Territories\b/gi, 'NT')
+    .replace(/\bYukon\b/gi, 'YT')
+    .replace(/\bNunavut\b/gi, 'NU')
+    .replace(/\bCanada\b/gi, '')
+    .replace(/\b[A-Z]\d[A-Z]\s?\d[A-Z]\d\b/gi, '')
+    .replace(/\b\d{5}(?:-\d{4})?\b/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,/g, ',')
+    .trim()
+    .replace(/,\s*$/, '');
+
+  const parts = normalized
+    .split(',')
+    .map(part => normalizeWhitespace(part))
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0]}, ${parts[1]}`;
+  }
+
+  if (/^[A-Za-z .'-]+\s+[A-Z]{2}$/.test(normalized)) {
+    return normalized.replace(/\s+([A-Z]{2})$/, ', $1');
+  }
+
+  return normalized;
 };
 
 const isBadRequirementLine = (line) => {
@@ -552,14 +639,46 @@ Return ONLY valid JSON with this exact shape:
   "requirements": "- bullet\\n- bullet"
 }
 
-Rules:
-- Extract the ACTUAL hiring company and salary if present.
-- Preserve the company name exactly as shown in the posting when possible. Do not expand abbreviations or acronyms like "BMO" into longer names.
-- Remove company-marketing boilerplate, equal opportunity text, fraud warnings, and generic corporate descriptions.
-- "jobDescription" should contain concise responsibility/role bullets only.
-- "requirements" should contain qualification/experience/skills bullets only.
-- Do not invent values. Use empty string if missing.
-- Keep bullets concise.
+EXTRACTION RULES:
+
+company:
+- Read the full posting text and find the actual hiring company name.
+- Look for phrases like "at [Company]", "join [Company]", "[Company] is hiring", "About [Company]", or a company name in the header/title.
+- Copy the name exactly as written. Do not expand acronyms (e.g. "BMO" stays "BMO").
+- If genuinely not found, return "".
+
+position:
+- Extract the job title as written. Usually in the header or first line.
+
+location:
+- Extract city, province/state, country, or remote status as written.
+- If multiple locations, join with " / ".
+
+salary:
+- Extract only if explicitly stated (e.g. "$80,000–$95,000", "£45k", "up to $120k/year").
+- Do not guess or infer. Return "" if not stated.
+
+contactEmail:
+- Extract only a valid email address format (contains @ and domain).
+- Return "" if none found.
+
+contactName:
+- Must be a real human name only (e.g. "Sarah Kim", "John D.").
+- Do not include titles, sentences, or recruiter notes.
+- Return "" if no clear human name is found.
+
+jobDescription:
+- List responsibilities and role duties only, as concise bullets.
+- Do not include: company info, salary, location, qualifications, boilerplate, DEI statements.
+
+requirements:
+- List qualifications, skills, and experience requirements only, as concise bullets.
+- Do not include: responsibilities, company info, or metadata.
+
+ANTI-HALLUCINATION:
+- Never invent or assume values not present in the text.
+- When uncertain, return "".
+- Do not expand, translate, or paraphrase company names.
 
 Input:
 ${JSON.stringify(input)}`;
@@ -643,11 +762,12 @@ exports.handler = async (event) => {
       stripTags(getNestedValue(jsonLd, [['qualifications'], ['skills'], ['responsibilities'], ['experienceRequirements']]))
     );
 
-    const companyCandidate = companyFromJsonLd ||
-      extractCompanyFromText(rawPageText) ||
-      titleToCompany(metaTitle) ||
-      titleToCompany(pageTitle) ||
-      extractLabelValue(pageText, ['company', 'organization']);
+    const companyCandidate = safeCompanyCandidate(companyFromJsonLd) ||
+      safeCompanyCandidate(extractCompanyFromText(rawPageText)) ||
+      safeCompanyCandidate(titleToCompany(metaTitle)) ||
+      safeCompanyCandidate(titleToCompany(pageTitle)) ||
+      safeCompanyCandidate(extractLabelValue(pageText, ['company', 'organization'])) ||
+      safeCompanyCandidate(hostnameToCompany(finalUrl));
 
     const salaryCandidate = stringifySalary(getNestedValue(jsonLd, [['baseSalary'], ['estimatedSalary']])) ||
       extractSalaryFromText(rawPageText) ||
@@ -675,6 +795,7 @@ exports.handler = async (event) => {
         locationCandidate: locationFromJsonLd,
         salaryCandidate,
         contactEmailCandidate: extractEmail(html),
+        contactNameCandidate: safeContactNameCandidate(extractLabelValue(pageText, ['contact', 'recruiter', 'hiring manager'])),
         rawText: rawPageText.slice(0, 18000),
         descriptionCandidate: jobDescription,
         requirementsCandidate: requirements,
@@ -683,7 +804,12 @@ exports.handler = async (event) => {
       console.error('Haiku extraction failed:', modelError);
     }
 
-    const finalCompany = pickPreferredCompanyName(aiExtract?.company, companyCandidate, rawPageText, `${pageTitle}\n${metaTitle}`);
+    const finalCompany = pickPreferredCompanyName(
+      safeCompanyCandidate(aiExtract?.company),
+      companyCandidate,
+      rawPageText,
+      `${pageTitle}\n${metaTitle}`
+    );
     const finalSalary = normalizeSalaryOutput(aiExtract?.salary || salaryCandidate);
     const finalDescription = aiExtract?.jobDescription
       ? normalizeModelBullets(aiExtract.jobDescription, 10)
@@ -718,7 +844,13 @@ exports.handler = async (event) => {
       ),
       salary: limitText(finalSalary, MAX_FIELD_CHARS.salary),
       contactEmail: limitText(aiExtract?.contactEmail || extractEmail(html), MAX_FIELD_CHARS.contactEmail),
-      contactName: limitText(sanitizeContactName(aiExtract?.contactName || extractLabelValue(pageText, ['contact', 'recruiter', 'hiring manager'])), MAX_FIELD_CHARS.contactName),
+      contactName: limitText(
+        sanitizeContactName(
+          safeContactNameCandidate(aiExtract?.contactName) ||
+          safeContactNameCandidate(extractLabelValue(pageText, ['contact', 'recruiter', 'hiring manager']))
+        ),
+        MAX_FIELD_CHARS.contactName
+      ),
       jobDescription: limitFormattedText(richerDescription, MAX_FIELD_CHARS.jobDescription),
       requirements: limitFormattedText(richerRequirements, MAX_FIELD_CHARS.requirements),
       sourceUrl: finalUrl,

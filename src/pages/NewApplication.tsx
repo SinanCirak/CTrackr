@@ -44,6 +44,55 @@ export default function NewApplication() {
     coverLetterVersions: [],
   });
 
+  const getMatchScoreMeta = (score: number | null) => {
+    if (score === null) {
+      return {
+        tone: 'neutral',
+        label: 'Not Calculated',
+        guidance: 'Run the score to see how strong this match looks.',
+      };
+    }
+
+    if (score < 50) {
+      return {
+        tone: 'low',
+        label: 'Do Not Apply',
+        guidance: 'Mismatch. This is likely a poor use of time unless you are only exploring.',
+      };
+    }
+
+    if (score < 65) {
+      return {
+        tone: 'caution',
+        label: 'Low Priority',
+        guidance: 'Risky match. Apply selectively if you are casting a wide net.',
+      };
+    }
+
+    if (score < 75) {
+      return {
+        tone: 'good',
+        label: 'Apply',
+        guidance: 'Borderline but viable. A strong resume and story could still earn an interview.',
+      };
+    }
+
+    if (score < 85) {
+      return {
+        tone: 'strong',
+        label: 'Strong Candidate',
+        guidance: 'Good fit. Most requirements line up and this is worth prioritizing.',
+      };
+    }
+
+    return {
+      tone: 'excellent',
+      label: 'Excellent Match',
+      guidance: 'Near-perfect fit. Interview odds should be meaningfully stronger here.',
+    };
+  };
+  const matchScoreMeta = getMatchScoreMeta(matchScore);
+
   const buildVersionEntry = (fileUrl: string, fileKey: string | undefined, version: number, source: 'generated' | 'uploaded'): DocumentVersion => ({
     version,
     label: `v${version}`,
@@ -1008,7 +1057,7 @@ export default function NewApplication() {
           </div>
         </div>
 
-        <div className="match-score-section" aria-live="polite">
+        <div className={`match-score-section match-score-section-${matchScoreMeta.tone}`} aria-live="polite">
           <div className="match-score-header">
             <div>
               <span className="match-score-eyebrow">Match Score</span>
@@ -1017,8 +1066,13 @@ export default function NewApplication() {
                 If job data is fetched from a URL, the score is calculated automatically. If you enter details manually, use the button to calculate it.
               </p>
             </div>
-            <div className={`match-score-value ${matchScore !== null ? 'has-score' : ''}`}>
-              {calculatingMatch ? '...' : matchScore !== null ? `${matchScore}/100` : '--/100'}
+            <div className="match-score-display">
+              <div className={`match-score-value ${matchScore !== null ? 'has-score' : ''} match-score-value-${matchScoreMeta.tone}`}>
+                {calculatingMatch ? '...' : matchScore !== null ? `${matchScore}/100` : '--/100'}
+              </div>
+              <span className={`match-score-badge match-score-badge-${matchScoreMeta.tone}`}>
+                {calculatingMatch ? 'Calculating' : matchScoreMeta.label}
+              </span>
             </div>
           </div>
 
@@ -1032,7 +1086,10 @@ export default function NewApplication() {
               <HiSparkles className="btn-icon" />
               <span>{calculatingMatch ? 'Calculating...' : 'Calculate Match'}</span>
             </button>
-            {matchSummary && <p className="match-score-summary">{matchSummary}</p>}
+            <div className="match-score-text">
+              <p className="match-score-guidance">{matchScoreMeta.guidance}</p>
+              {matchSummary && <p className="match-score-summary">{matchSummary}</p>}
+            </div>
           </div>
         </div>
 

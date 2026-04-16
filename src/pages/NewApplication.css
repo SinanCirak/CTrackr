@@ -390,6 +390,13 @@
   gap: 1rem;
 }
 
+.match-score-display {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
 .match-score-eyebrow {
   display: inline-block;
   margin-bottom: 0.35rem;
@@ -430,6 +437,77 @@
   border-color: rgba(99, 102, 241, 0.22);
 }
 
+.match-score-value-low {
+  color: #991B1B;
+  background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
+  border-color: rgba(220, 38, 38, 0.22);
+}
+
+.match-score-value-caution {
+  color: #92400E;
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+.match-score-value-good {
+  color: #92400E;
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+.match-score-value-strong {
+  color: #166534;
+  background: linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%);
+  border-color: rgba(22, 163, 74, 0.22);
+}
+
+.match-score-value-excellent {
+  color: #1D4ED8;
+  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+  border-color: rgba(37, 99, 235, 0.24);
+}
+
+.match-score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.match-score-badge-neutral {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+.match-score-badge-low {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+.match-score-badge-caution {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.match-score-badge-good {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.match-score-badge-strong {
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+.match-score-badge-excellent {
+  background: #DBEAFE;
+  color: #1D4ED8;
+}
+
 .match-score-actions {
   display: flex;
   align-items: center;
@@ -443,9 +521,21 @@
 }
 
 .match-score-summary {
-  margin: 0;
+  margin: 0.35rem 0 0;
   color: #475569;
   font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.match-score-text {
+  flex: 1;
+}
+
+.match-score-guidance {
+  margin: 0;
+  color: #334155;
+  font-size: 0.92rem;
+  font-weight: 600;
   line-height: 1.5;
 }
 
@@ -540,8 +630,17 @@
     flex-direction: column;
   }
 
+  .match-score-display {
+    width: 100%;
+    align-items: stretch;
+  }
+
   .match-score-value,
   .match-score-btn {
+    width: 100%;
+  }
+
+  .match-score-badge {
     width: 100%;
   }
 

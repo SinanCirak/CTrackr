@@ -155,7 +155,7 @@ EVALUATION PRINCIPLES:
   1) technical alignment (skills, tools, technologies)
   2) experience alignment (depth, scope, responsibility, environment)
 
-- Do not rely on keyword matching alone. Evaluate context and credibility.
+- Do not rely on keyword matching alone. Evaluate context, credibility, and evidence.
 
 - Distinguish between levels of experience:
   - professional / production / team-based → high credibility
@@ -163,12 +163,56 @@ EVALUATION PRINCIPLES:
   - academic / small personal → lower credibility
 
 - Treat independent and project work as valid evidence of capability,
-  but not equivalent to long-term organizational experience.
+  but do not assume it is equivalent to long-term organizational experience.
 
 - Do not assume missing details (years, seniority, leadership, scale).
 
 - Do not use phrases like "X+ years", "senior-level", or "extensive experience"
-  unless explicitly supported.
+  unless explicitly supported by the input.
+
+EXPERIENCE VALIDATION RULE:
+
+- Only award full credit when there is clear evidence the candidate has:
+  - implemented
+  - operated
+  - owned
+
+- Treat "familiarity", "knowledge", or "concepts" as partial evidence only.
+
+ROLE CONTEXT UNDERSTANDING:
+
+- Before scoring, infer the primary nature of the role from the job description.
+- Identify what the role fundamentally requires most to succeed.
+
+- Adjust scoring priorities based on that core requirement.
+
+- If the role emphasizes maintaining, monitoring, reliability, support, or production stability:
+  - prioritize evidence of operating and maintaining systems
+  - reduce weight of build-only or project-based development work
+
+- If the role emphasizes building features, developing applications, or delivering functionality:
+  - prioritize development, system design, and implementation experience
+
+- Do not treat building and deploying systems as equivalent to
+  operating and maintaining them in real-world environments.
+
+CORE REQUIREMENT RULE:
+
+- Identify the primary responsibility of the role (the main reason the role exists).
+
+- If the candidate lacks direct, credible experience in this primary responsibility:
+  - the score MUST NOT exceed the "partial fit" range (maximum 69)
+
+- Supporting or adjacent skills must not override missing core experience.
+
+HARD GAP RULE:
+
+- If a core requirement is missing:
+  - apply a strong penalty
+
+- Do not treat missing core responsibilities as minor gaps.
+
+- This must significantly limit the final score.
 
 SCORING LOGIC:
 
@@ -176,7 +220,8 @@ SCORING LOGIC:
 - Strong technical + strong experience alignment → high score
 - Weak or missing core skills → low score
 
-- Lack of organizational or production experience should reduce the score moderately, not drastically.
+- Lack of organizational or production experience should reduce the score moderately,
+  unless the role heavily depends on it, in which case apply stronger penalties.
 
 SCORING BANDS (STRICT INTERPRETATION):
 
@@ -200,7 +245,7 @@ ANTI-INFLATION RULE:
 
 - Do not inflate scores based on surface-level alignment.
 - When evidence is unclear or ambiguous, prefer the lower reasonable band.
-- Scores above 85 must be rare and strongly justified.
+- High scores must be rare and strongly justified.
 
 CONSISTENCY RULE:
 
@@ -212,8 +257,10 @@ CONSISTENCY RULE:
 SELF-CHECK BEFORE OUTPUT:
 
 - Does the score match the written summary?
-- Is the score above 85 without clear professional experience? If yes, reduce.
-- Is the score below 55 without clear skill mismatch? If yes, increase.
+- Is the score above the allowed range given the evidence? If yes, reduce.
+- Is the score below the expected range without clear mismatch? If yes, increase.
+- Did I incorrectly treat knowledge as experience? If yes, reduce score.
+- Did I incorrectly treat development work as equivalent to operational ownership? If yes, reduce score.
 
 OUTPUT JSON:
 {
