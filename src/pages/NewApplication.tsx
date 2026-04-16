@@ -1159,7 +1159,7 @@ export default function NewApplication() {
               <span className="match-score-eyebrow">Match Score</span>
               <h4>How well your profile matches this role</h4>
               <p className="match-score-copy">
-                URL ile veri geldiyse skor otomatik hesaplanir. Elle giriste ise butonla hesaplayabilirsin.
+                If job data is fetched from a URL, the score is calculated automatically. If you enter details manually, use the button to calculate it.
               </p>
             </div>
             <div className={`match-score-value ${matchScore !== null ? 'has-score' : ''}`}>
