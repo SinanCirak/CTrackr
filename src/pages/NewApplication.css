@@ -165,8 +165,8 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  margin-top: 2rem;
-  padding-top: 2rem;
+  margin-top: 1.25rem;
+  padding-top: 1.5rem;
 }
 
 .form-actions-buttons {
@@ -233,7 +233,7 @@
 }
 
 .form-section {
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
 }
 
 .form-section h3 {
@@ -376,6 +376,79 @@
   border-radius: 8px;
 }
 
+.match-score-section {
+  margin-top: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid #E5E7EB;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.match-score-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.match-score-eyebrow {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6366F1;
+}
+
+.match-score-header h4 {
+  margin: 0;
+}
+
+.match-score-copy {
+  margin: 0.35rem 0 0;
+  color: #64748B;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.match-score-value {
+  min-width: 110px;
+  padding: 0.8rem 1rem;
+  border-radius: 16px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  color: #64748B;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.match-score-value.has-score {
+  color: #3730A3;
+  background: linear-gradient(135deg, #EEF2FF 0%, #E0EAFF 100%);
+  border-color: rgba(99, 102, 241, 0.22);
+}
+
+.match-score-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.match-score-btn {
+  min-width: 200px;
+  justify-content: center;
+}
+
+.match-score-summary {
+  margin: 0;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
 .uploaded-file-info {
   display: flex;
   align-items: center;
@@ -460,6 +533,16 @@
 
   .form-actions {
     justify-content: stretch;
+  }
+
+  .match-score-header,
+  .match-score-actions {
+    flex-direction: column;
+  }
+
+  .match-score-value,
+  .match-score-btn {
+    width: 100%;
   }
 
   .form-actions-buttons {

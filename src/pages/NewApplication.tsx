@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { createApplication, getUploadUrl, uploadFileToS3, deleteFile, getProfile, extractJobInformation } from '../utils/api';
 import { getTodayDateLocalISO } from '../utils/date';
 import type { CreateApplicationInput, DocumentVersion } from '../types/application';
+import type { UserProfile } from '../types/user';
 import './NewApplication.css';
 
 export default function NewApplication() {
@@ -17,6 +18,9 @@ export default function NewApplication() {
   const [uploadingCoverLetter, setUploadingCoverLetter] = useState(false);
   const [fetchingJobInfo, setFetchingJobInfo] = useState(false);
   const [jobInfoStatus, setJobInfoStatus] = useState<string | null>(null);
+  const [calculatingMatch, setCalculatingMatch] = useState(false);
+  const [matchScore, setMatchScore] = useState<number | null>(null);
+  const [matchSummary, setMatchSummary] = useState<string | null>(null);
   const [generating, setGenerating] = useState({ cv: false, coverLetter: false });
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
@@ -262,6 +266,221 @@ export default function NewApplication() {
     return cleaned;
   };
 
+  const normalizeCompanyName = (value: string | undefined) => {
+    const cleaned = String(value || '').trim();
+    if (!cleaned) return '';
+
+    const companyAliases: Array<{ pattern: RegExp; value: string }> = [
+      { pattern: /^bank of montreal$/i, value: 'BMO' },
+    ];
+
+    const match = companyAliases.find(alias => alias.pattern.test(cleaned));
+    return match ? match.value : cleaned;
+  };
+
+  const getStoredProfile = (): UserProfile | null => {
+    try {
+      const savedProfile = localStorage.getItem('userProfile');
+      if (!savedProfile) return null;
+      return JSON.parse(savedProfile) as UserProfile;
+    } catch (error) {
+      console.error('Failed to load local profile for match score:', error);
+      return null;
+    }
+  };
+
+  const normalizeKeyword = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9+#./-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const extractKeywords = (text: string) => {
+    const normalizedText = normalizeKeyword(text);
+    if (!normalizedText) return [] as string[];
+
+    const phrasePatterns = [
+      'node js',
+      'node.js',
+      'typescript',
+      'javascript',
+      'python',
+      'java',
+      '.net',
+      'c#',
+      'aws',
+      'azure',
+      'gcp',
+      'terraform',
+      'lambda',
+      'api gateway',
+      'dynamodb',
+      's3',
+      'step functions',
+      'sqs',
+      'sns',
+      'opensearch',
+      'elk',
+      'serverless',
+      'microservices',
+      'microservice',
+      'restful apis',
+      'rest api',
+      'ci/cd',
+      'cicd',
+      'devops',
+      'docker',
+      'kubernetes',
+      'sql',
+      'nosql',
+      'react',
+      'frontend',
+      'backend',
+      'cloud',
+      'event driven',
+      'cloud native',
+      'system design',
+      'agile',
+      'leadership',
+      'communication',
+      'computer science',
+      'software engineering',
+      'full stack',
+      'full-stack',
+    ];
+
+    const detectedPhrases = phrasePatterns
+      .filter(phrase => normalizedText.includes(normalizeKeyword(phrase)))
+      .map(phrase => normalizeKeyword(phrase));
+
+    const stopWords = new Set([
+      'the', 'and', 'for', 'with', 'that', 'this', 'from', 'have', 'will', 'your', 'you',
+      'our', 'are', 'but', 'not', 'all', 'can', 'using', 'use', 'into', 'across', 'more',
+      'than', 'plus', 'role', 'team', 'work', 'works', 'about', 'job', 'jobs', 'day',
+      'days', 'week', 'years', 'year', 'new', 'strong', 'good', 'best', 'very', 'such',
+      'should', 'need', 'needed', 'preferred', 'experience', 'developer', 'development',
+      'software', 'engineer', 'engineering', 'application', 'applications', 'salary',
+      'qualifications', 'requirements', 'responsibilities',
+    ]);
+
+    const tokens = normalizedText
+      .split(' ')
+      .map(token => token.trim())
+      .filter(token => token.length >= 3 && !stopWords.has(token));
+
+    return Array.from(new Set([...detectedPhrases, ...tokens]));
+  };
+
+  const buildProfileSearchText = (profile: UserProfile) => {
+    const skillText = [
+      ...(profile.skills || []),
+      ...((profile.skillCategories || []).flatMap(category => [category.category, ...(category.skills || []), category.description || ''])),
+    ].join(' ');
+
+    const experienceText = (profile.experience || [])
+      .flatMap(item => [item.company, item.position, item.location || '', item.description, ...(item.achievements || [])])
+      .join(' ');
+
+    const projectText = (profile.projects || [])
+      .flatMap(item => [item.name, item.description, item.year || '', ...(item.technologies || []), ...(item.achievements || [])])
+      .join(' ');
+
+    const certificationText = (profile.certifications || [])
+      .flatMap(item => [item.name, item.code || '', item.issuer || ''])
+      .join(' ');
+
+    const educationText = (profile.education || [])
+      .flatMap(item => [item.institution, item.degree, item.field, item.location || ''])
+      .join(' ');
+
+    return [
+      profile.summary || '',
+      skillText,
+      experienceText,
+      projectText,
+      certificationText,
+      educationText,
+      profile.parsedProfile?.keywords?.join(' ') || '',
+    ].join(' ');
+  };
+
+  const calculateMatchScore = async (applicationData: CreateApplicationInput, autoTriggered = false) => {
+    const positionText = String(applicationData.position || '').trim();
+    const requirementsText = String(applicationData.requirements || '').trim();
+    const descriptionText = String(applicationData.jobDescription || '').trim();
+
+    if (!positionText && !requirementsText && !descriptionText) {
+      if (!autoTriggered) {
+        setError('Please enter the job description or requirements before calculating match score.');
+      }
+      return;
+    }
+
+    const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
+
+    try {
+      setCalculatingMatch(true);
+      setError(null);
+      setMatchSummary(autoTriggered ? 'Calculating match score from the fetched job information...' : 'Calculating your match score...');
+
+      const profile = (userId ? await getProfile(userId) : null) || getStoredProfile();
+
+      if (!profile) {
+        setMatchScore(null);
+        setMatchSummary('Add your profile details first so match score can compare your experience with the job.');
+        return;
+      }
+
+      const jobText = [positionText, requirementsText, descriptionText].join(' ');
+      const jobKeywords = extractKeywords(jobText).slice(0, 40);
+      const profileKeywords = new Set(extractKeywords(buildProfileSearchText(profile)));
+
+      const matchedKeywords = jobKeywords.filter(keyword => profileKeywords.has(keyword));
+      const coverageBase = jobKeywords.length || 1;
+      const keywordCoverageScore = Math.min(70, Math.round((matchedKeywords.length / coverageBase) * 70));
+
+      const positionKeywords = extractKeywords(positionText).slice(0, 10);
+      const matchedTitleTerms = positionKeywords.filter(keyword => profileKeywords.has(keyword));
+      const titleScore = positionKeywords.length > 0
+        ? Math.min(15, Math.round((matchedTitleTerms.length / positionKeywords.length) * 15))
+        : 0;
+
+      const profileStrengthScore =
+        Math.min((profile.experience || []).length, 4) * 3 +
+        Math.min((profile.projects || []).length, 3) * 2 +
+        Math.min((profile.certifications || []).length, 2) * 2;
+
+      const finalScore = Math.max(0, Math.min(100, keywordCoverageScore + titleScore + Math.min(15, profileStrengthScore)));
+
+      const summaryParts: string[] = [];
+      if (matchedKeywords.length > 0) {
+        summaryParts.push(`Matched keywords: ${matchedKeywords.slice(0, 6).join(', ')}`);
+      }
+      if (matchedKeywords.length < Math.min(jobKeywords.length, 8)) {
+        const missingKeywords = jobKeywords.filter(keyword => !profileKeywords.has(keyword)).slice(0, 4);
+        if (missingKeywords.length > 0) {
+          summaryParts.push(`Missing keywords: ${missingKeywords.join(', ')}`);
+        }
+      }
+      if (summaryParts.length === 0) {
+        summaryParts.push('We compared your profile, skills, projects, and experience against this job posting.');
+      }
+
+      setMatchScore(finalScore);
+      setMatchSummary(summaryParts.join(' • '));
+    } catch (err) {
+      console.error('Failed to calculate match score:', err);
+      setMatchScore(null);
+      setMatchSummary('Could not calculate match score right now.');
+      if (!autoTriggered) {
+        setError(err instanceof Error ? err.message : 'Failed to calculate match score');
+      }
+    } finally {
+      setCalculatingMatch(false);
+    }
+  };
+
   const handleGetInformation = async () => {
     if (!formData.jobUrl || !formData.jobUrl.trim()) {
       setError('Please enter a job URL first.');
@@ -275,18 +494,23 @@ export default function NewApplication() {
 
       const result = await extractJobInformation(formData.jobUrl.trim());
       setJobInfoStatus('Parsing and filling the form...');
+      const nextFormData: CreateApplicationInput = {
+        ...formData,
+        jobUrl: result.sourceUrl || formData.jobUrl,
+        company: normalizeCompanyName(cleanAutofillValue(result.company, 160)) || formData.company,
+        position: cleanAutofillValue(result.position, 220) || formData.position,
+        location: cleanAutofillValue(result.location, 220) || formData.location,
+        salary: cleanAutofillValue(result.salary, 160) || formData.salary,
+        contactEmail: cleanAutofillValue(result.contactEmail, 160) || formData.contactEmail,
+        contactName: cleanAutofillValue(result.contactName, 160) || formData.contactName,
+        jobDescription: cleanAutofillValue(result.jobDescription, 8000, true) || formData.jobDescription,
+        requirements: cleanAutofillValue(result.requirements, 5000, true) || formData.requirements,
+      };
       setFormData(prev => ({
         ...prev,
-        jobUrl: result.sourceUrl || prev.jobUrl,
-        company: cleanAutofillValue(result.company, 160) || prev.company,
-        position: cleanAutofillValue(result.position, 220) || prev.position,
-        location: cleanAutofillValue(result.location, 220) || prev.location,
-        salary: cleanAutofillValue(result.salary, 160) || prev.salary,
-        contactEmail: cleanAutofillValue(result.contactEmail, 160) || prev.contactEmail,
-        contactName: cleanAutofillValue(result.contactName, 160) || prev.contactName,
-        jobDescription: cleanAutofillValue(result.jobDescription, 8000, true) || prev.jobDescription,
-        requirements: cleanAutofillValue(result.requirements, 5000, true) || prev.requirements,
+        ...nextFormData,
       }));
+      await calculateMatchScore(nextFormData, true);
       setJobInfoStatus(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to get job information');
@@ -926,6 +1150,34 @@ export default function NewApplication() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        <div className="match-score-section" aria-live="polite">
+          <div className="match-score-header">
+            <div>
+              <span className="match-score-eyebrow">Match Score</span>
+              <h4>How well your profile matches this role</h4>
+              <p className="match-score-copy">
+                URL ile veri geldiyse skor otomatik hesaplanir. Elle giriste ise butonla hesaplayabilirsin.
+              </p>
+            </div>
+            <div className={`match-score-value ${matchScore !== null ? 'has-score' : ''}`}>
+              {calculatingMatch ? '...' : matchScore !== null ? `${matchScore}/100` : '--/100'}
+            </div>
+          </div>
+
+          <div className="match-score-actions">
+            <button
+              type="button"
+              className="btn btn-primary match-score-btn"
+              onClick={() => calculateMatchScore(formData)}
+              disabled={calculatingMatch}
+            >
+              <HiSparkles className="btn-icon" />
+              <span>{calculatingMatch ? 'Calculating...' : 'Calculate Match'}</span>
+            </button>
+            {matchSummary && <p className="match-score-summary">{matchSummary}</p>}
           </div>
         </div>
 

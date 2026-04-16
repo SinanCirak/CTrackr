@@ -435,6 +435,12 @@ resource "aws_lambda_function" "get_job_info" {
   runtime          = "nodejs20.x"
   timeout          = 20
 
+  environment {
+    variables = {
+      BEDROCK_HAIKU_MODEL_ID = var.bedrock_haiku_model_id
+    }
+  }
+
   tags = {
     Name    = "${var.project_name}-get-job-info"
     Project = var.project_name
