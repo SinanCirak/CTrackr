@@ -98,6 +98,11 @@ const hasKeywordEvidence = (userProfile, keywords) => {
   return keywords.some(keyword => haystack.includes(keyword));
 };
 
+const countKeywordEvidence = (sourceText, keywords) => {
+  const haystack = normalizeText(sourceText).toLowerCase();
+  return keywords.filter(keyword => haystack.includes(keyword)).length;
+};
+
 const sanitizeClaims = (items, unsupportedYearsClaim, mostlyIndependent = false) =>
   uniqueList(items)
     .filter(item => {
@@ -284,6 +289,15 @@ exports.handler = async (event) => {
 
     const requiredYears = extractRequiredYears(jobText);
     const profileYears = estimateTotalExperienceYears(userProfile);
+    const profileText = normalizeText(JSON.stringify({
+      summary: userProfile.summary || '',
+      parsedKeywords: userProfile.parsedProfile?.keywords || [],
+      experience: userProfile.experience || [],
+      projects: userProfile.projects || [],
+      certifications: userProfile.certifications || [],
+      skills: userProfile.skills || [],
+      skillCategories: userProfile.skillCategories || [],
+    }));
     const roleLooksOperational = [
       'operations',
       'operator',
@@ -317,6 +331,22 @@ exports.handler = async (event) => {
       'pagerduty',
       'live production',
     ]);
+    const coreTechKeywords = [
+      'aws',
+      'lambda',
+      'api gateway',
+      'dynamodb',
+      'cognito',
+      'cloudfront',
+      'terraform',
+      'serverless',
+      's3',
+      'step functions',
+      'eventbridge',
+    ];
+    const strongTechnicalAlignment =
+      countKeywordEvidence(jobText, coreTechKeywords) >= 3 &&
+      countKeywordEvidence(profileText, coreTechKeywords) >= 4;
     const mostlyIndependent = hasMostlyIndependentExperience(userProfile);
     const unsupportedYearsClaim = requiredYears >= 3 && (profileYears < requiredYears || mostlyIndependent);
 
@@ -336,6 +366,14 @@ exports.handler = async (event) => {
 
     if (roleLooksOperational && mostlyIndependent) {
       finalScore = Math.min(finalScore, 62);
+    }
+
+    if (strongTechnicalAlignment && finalScore < 52) {
+      finalScore = 52;
+    }
+
+    if (strongTechnicalAlignment && roleLooksOperational && mostlyIndependent && finalScore < 58) {
+      finalScore = 58;
     }
 
     const strengths = sanitizeClaims(parsed.strengths, unsupportedYearsClaim, mostlyIndependent);
