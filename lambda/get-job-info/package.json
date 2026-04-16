@@ -1,0 +1,6 @@
+{
+  "name": "get-job-info",
+  "version": "1.0.0",
+  "description": "Lambda function to fetch and extract job information from a job posting URL",
+  "main": "index.js"
+}

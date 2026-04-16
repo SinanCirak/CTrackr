@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiPlusCircle, HiX, HiDocument, HiCloudUpload, HiClipboardCheck, HiInformationCircle, HiDownload } from 'react-icons/hi';
+import { HiPlusCircle, HiX, HiDocument, HiCloudUpload, HiClipboardCheck, HiInformationCircle, HiDownload, HiSparkles } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
-import { createApplication, getUploadUrl, uploadFileToS3, deleteFile, getProfile } from '../utils/api';
+import { createApplication, getUploadUrl, uploadFileToS3, deleteFile, getProfile, extractJobInformation } from '../utils/api';
 import { getTodayDateLocalISO } from '../utils/date';
 import type { CreateApplicationInput, DocumentVersion } from '../types/application';
 import './NewApplication.css';
@@ -15,6 +15,7 @@ export default function NewApplication() {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [uploadingCv, setUploadingCv] = useState(false);
   const [uploadingCoverLetter, setUploadingCoverLetter] = useState(false);
+  const [fetchingJobInfo, setFetchingJobInfo] = useState(false);
   const [generating, setGenerating] = useState({ cv: false, coverLetter: false });
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
@@ -248,6 +249,36 @@ export default function NewApplication() {
     }
   };
 
+  const handleGetInformation = async () => {
+    if (!formData.jobUrl || !formData.jobUrl.trim()) {
+      setError('Please enter a job URL first.');
+      return;
+    }
+
+    try {
+      setFetchingJobInfo(true);
+      setError(null);
+
+      const result = await extractJobInformation(formData.jobUrl.trim());
+      setFormData(prev => ({
+        ...prev,
+        jobUrl: result.sourceUrl || prev.jobUrl,
+        company: result.company || prev.company,
+        position: result.position || prev.position,
+        location: result.location || prev.location,
+        salary: result.salary || prev.salary,
+        contactEmail: result.contactEmail || prev.contactEmail,
+        contactName: result.contactName || prev.contactName,
+        jobDescription: result.jobDescription || prev.jobDescription,
+        requirements: result.requirements || prev.requirements,
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to get job information');
+    } finally {
+      setFetchingJobInfo(false);
+    }
+  };
+
   const handleGenerateDocument = async (documentType: 'cv' | 'coverLetter') => {
     if (!formData.company || !formData.position) {
       setGenerationError('Please enter company and position before generating documents.');
@@ -437,14 +468,25 @@ export default function NewApplication() {
 
         <div className="form-group">
           <label htmlFor="jobUrl">Job URL</label>
-          <input
-            type="url"
-            id="jobUrl"
-            name="jobUrl"
-            value={formData.jobUrl}
-            onChange={handleChange}
-            placeholder="https://..."
-          />
+          <div className="job-url-row">
+            <input
+              type="url"
+              id="jobUrl"
+              name="jobUrl"
+              value={formData.jobUrl}
+              onChange={handleChange}
+              placeholder="https://..."
+            />
+            <button
+              type="button"
+              className="btn btn-secondary job-info-btn"
+              onClick={handleGetInformation}
+              disabled={fetchingJobInfo}
+            >
+              <HiSparkles className="btn-icon" />
+              <span>{fetchingJobInfo ? 'Getting...' : 'Get Information'}</span>
+            </button>
+          </div>
         </div>
 
         <div className="form-row">
@@ -885,4 +927,3 @@ export default function NewApplication() {
     </div>
   );
 }
-

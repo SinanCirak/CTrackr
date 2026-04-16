@@ -270,6 +270,12 @@ data "archive_file" "delete_file" {
   output_path = "${path.module}/../lambda/delete-file.zip"
 }
 
+data "archive_file" "get_job_info" {
+  type        = "zip"
+  source_dir  = "${path.module}/../lambda/get-job-info"
+  output_path = "${path.module}/../lambda/get-job-info.zip"
+}
+
 # Lambda Functions
 resource "aws_lambda_function" "create_application" {
   filename         = data.archive_file.create_application.output_path
@@ -420,6 +426,21 @@ resource "aws_lambda_function" "delete_file" {
   }
 }
 
+resource "aws_lambda_function" "get_job_info" {
+  filename         = data.archive_file.get_job_info.output_path
+  function_name    = "${var.project_name}-get-job-info"
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "index.handler"
+  source_code_hash = data.archive_file.get_job_info.output_base64sha256
+  runtime          = "nodejs20.x"
+  timeout          = 20
+
+  tags = {
+    Name    = "${var.project_name}-get-job-info"
+    Project = var.project_name
+  }
+}
+
 resource "aws_lambda_function" "get_profile" {
   filename         = data.archive_file.get_profile.output_path
   function_name    = "${var.project_name}-get-profile"
@@ -554,6 +575,13 @@ resource "aws_apigatewayv2_integration" "delete_file" {
   integration_method = "POST"
 }
 
+resource "aws_apigatewayv2_integration" "get_job_info" {
+  api_id             = aws_apigatewayv2_api.api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = aws_lambda_function.get_job_info.invoke_arn
+  integration_method = "POST"
+}
+
 resource "aws_apigatewayv2_integration" "get_profile" {
   api_id             = aws_apigatewayv2_api.api.id
   integration_type   = "AWS_PROXY"
@@ -616,6 +644,12 @@ resource "aws_apigatewayv2_route" "delete_file" {
   api_id    = aws_apigatewayv2_api.api.id
   route_key = "DELETE /file"
   target    = "integrations/${aws_apigatewayv2_integration.delete_file.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_job_info" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "POST /job-info"
+  target    = "integrations/${aws_apigatewayv2_integration.get_job_info.id}"
 }
 
 resource "aws_apigatewayv2_route" "get_profile" {
@@ -689,6 +723,14 @@ resource "aws_lambda_permission" "delete_file" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.delete_file.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "get_job_info" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.get_job_info.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
 }
@@ -1048,4 +1090,3 @@ resource "aws_route53_record" "cloudfront_ipv6" {
     evaluate_target_health = false
   }
 }
-

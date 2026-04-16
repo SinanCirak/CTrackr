@@ -276,6 +276,18 @@ export interface UploadUrlResponse {
   fileKey: string;
 }
 
+export interface ExtractJobInfoResponse {
+  company?: string;
+  position?: string;
+  location?: string;
+  salary?: string;
+  jobDescription?: string;
+  requirements?: string;
+  contactEmail?: string;
+  contactName?: string;
+  sourceUrl?: string;
+}
+
 export async function deleteFile(fileKey: string): Promise<void> {
   console.log('deleteFile called with fileKey:', fileKey);
   console.log('API_BASE_URL:', API_BASE_URL);
@@ -309,6 +321,58 @@ export async function deleteFile(fileKey: string): Promise<void> {
 
   const result = await response.json();
   console.log('Delete file result:', result);
+}
+
+export async function extractJobInformation(jobUrl: string): Promise<ExtractJobInfoResponse> {
+  if (USE_MOCK_DATA) {
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    const normalizedUrl = String(jobUrl || '').trim();
+    let company = '';
+    try {
+      const parsedUrl = new URL(normalizedUrl);
+      company = parsedUrl.hostname.replace(/^www\./, '').split('.')[0];
+      company = company ? company.charAt(0).toUpperCase() + company.slice(1) : '';
+    } catch (error) {
+      company = '';
+    }
+
+    return {
+      company,
+      position: '',
+      location: '',
+      salary: '',
+      jobDescription: '',
+      requirements: '',
+      contactEmail: '',
+      contactName: '',
+      sourceUrl: normalizedUrl,
+    };
+  }
+
+  const response = await fetch(`${API_BASE_URL}/job-info`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ jobUrl }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = `Failed to get job information: ${response.statusText}`;
+    try {
+      const errorData = JSON.parse(errorText);
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch (e) {
+      if (errorText) {
+        errorMessage = errorText;
+      }
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
 }
 
 export async function getUploadUrl(
@@ -416,4 +480,3 @@ export async function updateProfile(profile: UserProfile): Promise<UserProfile> 
 
   return response.json();
 }
-

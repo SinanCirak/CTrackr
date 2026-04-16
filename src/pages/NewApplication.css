@@ -135,6 +135,19 @@
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
+.job-url-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.job-info-btn {
+  justify-content: center;
+  min-width: 170px;
+  white-space: nowrap;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -431,6 +444,10 @@
   }
 
   .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .job-url-row {
     grid-template-columns: 1fr;
   }
 
