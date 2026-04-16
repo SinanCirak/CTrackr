@@ -62,7 +62,9 @@ const estimateTotalExperienceYears = (userProfile) => {
   const months = (userProfile.experience || [])
     .map(item => {
       const start = parseDateToMonthIndex(item.startDate);
-      const end = item.current ? (new Date().getFullYear() * 12 + new Date().getMonth()) : parseDateToMonthIndex(item.endDate);
+      const end = item.current
+        ? (new Date().getFullYear() * 12 + new Date().getMonth())
+        : parseDateToMonthIndex(item.endDate);
       if (start == null || end == null || end < start) return 0;
       return end - start + 1;
     })
@@ -71,11 +73,11 @@ const estimateTotalExperienceYears = (userProfile) => {
   return Math.round((months / 12) * 10) / 10;
 };
 
-const extractRequiredYears = (jobText) => {
-  const text = normalizeText(jobText).toLowerCase();
-  if (!text) return 0;
+const extractRequiredYears = (text) => {
+  const normalized = normalizeText(text).toLowerCase();
+  if (!normalized) return 0;
 
-  const matches = [...text.matchAll(/(\d+)\s*\+?\s*(?:to\s*\d+|\-\s*\d+)?\s*(?:years|year|yrs|yr)/g)];
+  const matches = [...normalized.matchAll(/(\d+)\s*\+?\s*(?:years|year|yrs|yr)/g)];
   if (matches.length === 0) return 0;
 
   return matches.reduce((max, match) => {
@@ -84,73 +86,14 @@ const extractRequiredYears = (jobText) => {
   }, 0);
 };
 
-const hasKeywordEvidence = (userProfile, keywords) => {
-  const haystack = normalizeText(JSON.stringify({
-    summary: userProfile.summary || '',
-    parsedKeywords: userProfile.parsedProfile?.keywords || [],
-    experience: userProfile.experience || [],
-    projects: userProfile.projects || [],
-    certifications: userProfile.certifications || [],
-    skills: userProfile.skills || [],
-    skillCategories: userProfile.skillCategories || [],
-  })).toLowerCase();
-
-  return keywords.some(keyword => haystack.includes(keyword));
-};
-
-const countKeywordEvidence = (sourceText, keywords) => {
-  const haystack = normalizeText(sourceText).toLowerCase();
-  return keywords.filter(keyword => haystack.includes(keyword)).length;
-};
-
-const sanitizeClaims = (items, unsupportedYearsClaim, mostlyIndependent = false) =>
+const sanitizeClaims = (items) =>
   uniqueList(items)
     .filter(item => {
       const text = normalizeText(item).toLowerCase();
       if (!text) return false;
-      if (unsupportedYearsClaim && /\b\d+\+?\s*years?\b/.test(text)) return false;
-      if (mostlyIndependent && (
-        text.includes('independent development experience') ||
-        text.includes('self-employed') ||
-        text.includes('self employed') ||
-        text.includes('freelance') ||
-        text.includes('consultant') ||
-        text.includes('project-based') ||
-        text.includes('project based')
-      )) {
-        return false;
-      }
       return true;
     })
     .slice(0, 3);
-
-const hasMostlyIndependentExperience = (userProfile) => {
-  const experiences = Array.isArray(userProfile.experience) ? userProfile.experience : [];
-  if (experiences.length === 0) return false;
-
-  const independentMatches = experiences.filter(item => {
-    const text = normalizeText([
-      item.company || '',
-      item.position || '',
-      item.description || '',
-      ...(item.achievements || []),
-    ].join(' ')).toLowerCase();
-
-    return [
-      'self employed',
-      'self-employed',
-      'freelance',
-      'contract',
-      'independent',
-      'consultant',
-      'portfolio',
-      'project-based',
-      'project based',
-    ].some(keyword => text.includes(keyword));
-  }).length;
-
-  return independentMatches > 0 && independentMatches >= experiences.length / 2;
-};
 
 const buildPrompt = ({ userProfile, jobApplication }) => {
   const payload = {
@@ -202,32 +145,92 @@ const buildPrompt = ({ userProfile, jobApplication }) => {
     },
   };
 
-  return `You are a careful recruiter evaluating a candidate against a job posting.
+  return `You are a careful recruiter and ATS reviewer evaluating a candidate against a job posting.
 
 Return ONLY valid JSON.
 
-Assess overall hiring fit realistically:
-- focus on evidence from real work history, scope, seniority, and responsibility
-- distinguish core requirements from nice-to-have items
-- do not overvalue surface keyword overlap
-- be conservative with high scores
-- do not assume years, production ownership, or domain depth unless the profile clearly supports them
+EVALUATION PRINCIPLES:
+
+- Evaluate fit based on both:
+  1) technical alignment (skills, tools, technologies)
+  2) experience alignment (depth, scope, responsibility, environment)
+
+- Do not rely on keyword matching alone. Evaluate context and credibility.
+
+- Distinguish between levels of experience:
+  - professional / production / team-based → high credibility
+  - independent / freelance / project-based → moderate credibility
+  - academic / small personal → lower credibility
+
+- Treat independent and project work as valid evidence of capability,
+  but not equivalent to long-term organizational experience.
+
+- Do not assume missing details (years, seniority, leadership, scale).
+
+- Do not use phrases like "X+ years", "senior-level", or "extensive experience"
+  unless explicitly supported.
+
+SCORING LOGIC:
+
+- Strong technical alignment + limited experience depth → partial fit (mid-range)
+- Strong technical + strong experience alignment → high score
+- Weak or missing core skills → low score
+
+- Lack of organizational or production experience should reduce the score moderately, not drastically.
+
+SCORING BANDS (STRICT INTERPRETATION):
+
+- 85–100 → strong fit:
+  Only assign when the candidate clearly meets most core requirements
+  with credible professional or team-based experience.
+
+- 70–84 → good fit:
+  Strong alignment across many core skills with some gaps in depth,
+  OR strong independent/project-based experience covering most requirements.
+
+- 55–69 → partial fit:
+  Core skills are present but experience depth is limited,
+  OR experience is primarily independent/project-based,
+  OR some core requirements are missing.
+
+- 0–54 → weak fit:
+  Clear mismatch in core skills or role expectations.
+
+ANTI-INFLATION RULE:
+
+- Do not inflate scores based on surface-level alignment.
+- When evidence is unclear or ambiguous, prefer the lower reasonable band.
+- Scores above 85 must be rare and strongly justified.
+
+CONSISTENCY RULE:
+
+- Ensure alignment between explanation and score:
+  - strong fit → not low score
+  - partial fit → mid-range score
+  - weak fit → low score
+
+SELF-CHECK BEFORE OUTPUT:
+
+- Does the score match the written summary?
+- Is the score above 85 without clear professional experience? If yes, reduce.
+- Is the score below 55 without clear skill mismatch? If yes, increase.
 
 OUTPUT JSON:
 {
   "score": 0,
   "summary": "2 short sentences max.",
-  "strengths": ["point 1", "point 2", "point 3"],
-  "gaps": ["point 1", "point 2"],
+  "strengths": ["short point", "short point"],
+  "gaps": ["short point"],
   "confidence": "low|medium|high"
 }
 
 STYLE RULES:
-- strengths and gaps must be short bullet-ready phrases, not paragraphs.
-- summary must mention overall fit in plain English.
-- summary should sound like a realistic hiring assessment, not motivational language.
-- do not make unsupported claims about years of experience
-- Use only the input below. Do not invent facts.
+
+- Be concise, neutral, and realistic.
+- Do not exaggerate or invent experience.
+- Avoid unsupported claims about years or seniority.
+- Keep strengths and gaps short and factual.
+- Ensure numeric score and explanation are consistent.
 
 INPUT:
 ${JSON.stringify(payload)}`;
@@ -280,126 +283,35 @@ exports.handler = async (event) => {
       return json(502, { error: 'Invalid response from match scoring model.' });
     }
 
-    const jobText = normalizeText([
-      jobApplication.position || '',
+    let finalScore = Math.max(0, Math.min(100, Number(parsed.score) || 0));
+
+    const jobText = [
       jobApplication.jobDescription || '',
       jobApplication.requirements || '',
       jobApplication.notes || '',
-    ].join(' ')).toLowerCase();
-
+      jobApplication.position || '',
+    ].join(' ');
     const requiredYears = extractRequiredYears(jobText);
     const profileYears = estimateTotalExperienceYears(userProfile);
-    const profileText = normalizeText(JSON.stringify({
-      summary: userProfile.summary || '',
-      parsedKeywords: userProfile.parsedProfile?.keywords || [],
-      experience: userProfile.experience || [],
-      projects: userProfile.projects || [],
-      certifications: userProfile.certifications || [],
-      skills: userProfile.skills || [],
-      skillCategories: userProfile.skillCategories || [],
-    }));
-    const roleLooksOperational = [
-      'operations',
-      'operator',
-      'support engineer',
-      'site reliability',
-      'sre',
-      'platform engineer',
-      'cloud operations',
-      'devops engineer',
-    ].some(keyword => jobText.includes(keyword));
-    const needsOpsDepth = [
-      'on-call',
-      'incident',
-      'sla',
-      'production support',
-      'outage',
-      'operations',
-      'support',
-      'monitoring',
-      'pagerduty',
-    ].some(keyword => jobText.includes(keyword));
-    const hasOpsEvidence = hasKeywordEvidence(userProfile, [
-      'on-call',
-      'incident',
-      'sla',
-      'production support',
-      'outage',
-      'operations',
-      'support',
-      'monitoring',
-      'pagerduty',
-      'live production',
-    ]);
-    const coreTechKeywords = [
-      'aws',
-      'lambda',
-      'api gateway',
-      'dynamodb',
-      'cognito',
-      'cloudfront',
-      'terraform',
-      'serverless',
-      's3',
-      'step functions',
-      'eventbridge',
-    ];
-    const strongTechnicalAlignment =
-      countKeywordEvidence(jobText, coreTechKeywords) >= 3 &&
-      countKeywordEvidence(profileText, coreTechKeywords) >= 4;
-    const mostlyIndependent = hasMostlyIndependentExperience(userProfile);
-    const unsupportedYearsClaim = requiredYears >= 3 && (profileYears < requiredYears || mostlyIndependent);
 
-    let finalScore = Math.max(0, Math.min(100, Number(parsed.score) || 0));
-
-    if (unsupportedYearsClaim) {
-      finalScore = Math.min(finalScore, 69);
+    if (requiredYears >= 4 && profileYears < requiredYears) {
+      finalScore -= 10;
     }
 
-    if (needsOpsDepth && (!hasOpsEvidence || mostlyIndependent)) {
-      finalScore = Math.min(finalScore, 68);
+    const normalizedJobText = normalizeText(jobText).toLowerCase();
+    const needsOps = ['on-call', 'incident', 'sla'].some(keyword => normalizedJobText.includes(keyword));
+
+    if (needsOps) {
+      finalScore -= 8;
     }
 
-    if (requiredYears >= 5 && mostlyIndependent) {
-      finalScore = Math.min(finalScore, 65);
-    }
-
-    if (roleLooksOperational && mostlyIndependent) {
-      finalScore = Math.min(finalScore, 62);
-    }
-
-    if (strongTechnicalAlignment && finalScore < 52) {
-      finalScore = 52;
-    }
-
-    if (strongTechnicalAlignment && roleLooksOperational && mostlyIndependent && finalScore < 58) {
-      finalScore = 58;
-    }
-
-    const strengths = sanitizeClaims(parsed.strengths, unsupportedYearsClaim, mostlyIndependent);
-    const gaps = sanitizeClaims(parsed.gaps, false);
-
-    if (unsupportedYearsClaim) {
-      gaps.unshift('Required years of direct experience are not clearly supported by recruiter-credible work history');
-    }
-
-    if (needsOpsDepth && (!hasOpsEvidence || mostlyIndependent)) {
-      gaps.unshift('Ops/on-call/incident ownership is not clearly demonstrated in real production environments');
-    }
-
-    if (roleLooksOperational && mostlyIndependent) {
-      gaps.unshift('Independent or self-employed work is not being treated as equivalent to enterprise operations experience');
-    }
-
-    const summary = unsupportedYearsClaim || (needsOpsDepth && (!hasOpsEvidence || mostlyIndependent)) || (roleLooksOperational && mostlyIndependent)
-      ? limitText(`${parsed.summary || ''} Recruiter-style screening would likely discount project-based or self-employed work as full enterprise operations experience for this role.`, 280)
-      : limitText(parsed.summary, 280);
+    finalScore = Math.max(40, Math.min(100, finalScore));
 
     return json(200, {
       score: finalScore,
-      summary,
-      strengths,
-      gaps: uniqueList(gaps).slice(0, 3),
+      summary: limitText(parsed.summary, 280),
+      strengths: sanitizeClaims(parsed.strengths),
+      gaps: sanitizeClaims(parsed.gaps),
       confidence: ['low', 'medium', 'high'].includes(parsed.confidence) ? parsed.confidence : 'medium',
     });
   } catch (error) {
