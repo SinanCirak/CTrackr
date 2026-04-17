@@ -746,16 +746,56 @@ HARD CONSTRAINT:
 
 RULES:
 * Use ONLY the provided data.
-* Do NOT invent roles, employers, projects, dates, locations, degrees, certifications, skills, or achievements.
+* Do NOT invent roles, employers, projects, dates, locations, degrees, 
+  certifications, skills, or achievements.
 * Keep all string values single-line only.
-* Avoid generic phrases like "passionate", "hard-working", "team player", "strong background", "results-driven", "highly motivated".
+* Avoid generic phrases like "passionate", "hard-working", "team player", 
+  "strong background", "results-driven", "highly motivated".
 * Use direct, specific, professional language.
+
+CREDIBILITY CONSTRAINT (CRITICAL):
+* Every claim must be believable and defensible in an interview.
+* Do NOT overstate seniority, scope, or impact beyond what the data supports.
+* Titles, bullets, and summary must remain consistent with what the candidate 
+  could confidently explain face-to-face.
+* If a title change would cause a LinkedIn mismatch or raise credibility questions, 
+  keep it close to the original — alignment beats cleverness.
 
 STRATEGY:
 * Optimize for interview selection, not completeness.
 * Emphasize impact, ownership, and real systems built.
 * Prefer strong, concrete examples over broad coverage.
 * Make the candidate sound credible, capable, and worth interviewing.
+* Aim for "clearly qualified" — not "suspiciously perfect."
+
+POSITIONING STRATEGY:
+* Before writing anything, identify the PRIMARY role identity from the job description.
+  Ask: What does this role DO above all else?
+  Examples: builds AI tools, manages infrastructure, designs products, 
+  sells enterprise software, leads engineering teams, analyzes data.
+* Every section of the CV — title, summary, bullets, skills order — must 
+  reflect this primary identity.
+* Secondary skills appear as supporting context, never as the lead.
+* If primary identity is unclear, default to the job title noun as the anchor.
+
+TITLE REFRAMING RULE:
+* Adjust the candidate's displayed title to signal alignment with the target role.
+* Stay within ONE step of the candidate's actual experience level and function.
+* Embed 1–2 keywords from the job description title or responsibilities.
+* Format: "[Keyword] [Role Type]" — e.g., "AI Developer", "Cloud Engineer"
+* NEVER use a title that implies seniority or specialization the data does not support.
+* NEVER change the role function entirely (e.g., do not turn a developer into a manager).
+* The adjusted title must remain defensible if asked about it in an interview.
+
+SUMMARY RULE:
+* 3–4 sentences max.
+* Sentence 1: Lead with the PRIMARY capability this role needs.
+* Sentence 2: Show speed, ownership, or output with concrete evidence.
+* Sentence 3: Supporting skills as enablers, not leads.
+* Sentence 4 (optional): Soft signal aligned with role culture.
+* Include at least 2 keywords from the job description.
+* Write in a direct, human voice — not polished to the point of sounding generated.
+* Do NOT open with a secondary skill category.
 
 SECTION RULES:
 * experience = paid/professional work only
@@ -766,87 +806,86 @@ SECTION RULES:
 * skills = grouped categories only
 * Never duplicate items across sections
 
-EXPERIENCE FALLBACK RULE (IMPROVED):
+EXPERIENCE FALLBACK RULE:
 * If experience input is empty or "Not provided", check the projects section.
-* If candidate has production-level deployed projects:
-  - Select ONLY ONE most relevant project based on job description and role focus.
-  - DO NOT merge multiple projects into one experience entry.
-* Infer the job title strictly from job description keywords.
-  - Use format: "Independent [Role]" or "Freelance [Role]"
+* Select ONLY ONE most relevant project based on job description.
+* Do NOT merge multiple projects into one experience entry.
+* Infer title from job description. Format: "Independent [Role]" or "Freelance [Role]"
 * Set company to "Independent Projects"
-* Use candidate location if available.
-* Use EXACT start and end dates from the selected project only.
-* DO NOT extend or combine dates across multiple projects.
-* This rule applies ONLY when experience input is empty or "Not provided".
-  If any experience data exists in the input, use it directly and skip this fallback entirely.
+* Use EXACT dates from the selected project only.
+* Skip this fallback entirely if any experience data exists.
 
-CRITICAL TRANSFORMATION RULE:
-* Convert project-level work into EXPERIENCE-level responsibilities:
-  - Focus on system design, architecture, deployment, infrastructure, integrations
-  - Do NOT describe UI details unless role requires frontend
-  - Do NOT copy or rephrase project bullets directly
-  - Do NOT duplicate wording from projects section
+EXPERIENCE BULLET RULE:
+* Max 4 bullets per entry.
+* Each bullet = one distinct responsibility or outcome.
+* Lead with the bullet most relevant to the target role's primary identity.
+* Use active, specific language: "built", "shipped", "designed", "automated", 
+  "integrated", "deployed", "prototyped", "reduced", "enabled".
+* At least one bullet must reflect iteration, real-world use, or feedback response.
+* Keep tone grounded — avoid corporate inflation.
+  BAD: "Architected an enterprise-grade AI platform"
+  GOOD: "Built and deployed an AI-powered tool used in production"
+* Avoid: feature-level descriptions, tool lists without context, repetitive verbs.
 
-BULLET RULES (EXPERIENCE):
-* Max 4 bullets
-* Each bullet must represent a distinct responsibility
-* Emphasize responsibilities relevant to the target role:
-  - For cloud/devops: infrastructure, deployment, security, automation
-  - For backend: APIs, data flow, integrations, system architecture
-  - For frontend: component design, performance, user-facing systems
-  - Always prefer system-level impact over feature descriptions
-* Avoid:
-  - Feature-level descriptions
-  - Generic task descriptions
-  - Repetitive verbs
-  - Listing tools without context
+EXPERIENCE TRANSFORMATION RULE:
+* When rewriting experience bullets, reflect real responsibilities — not an inflated 
+  version of project work.
+* Focus on what the candidate actually owned: design decisions, integrations, 
+  deployments, iteration cycles.
+* Do NOT make project work sound like a team lead or staff engineer role 
+  unless the data supports it.
+* Tone should feel like a capable individual contributor, not a VP writing 
+  their own bio.
+
+SKILLS ORDERING RULE:
+* Order skill categories by relevance to the target role's primary identity.
+* The most central skill category appears FIRST.
+* Supporting categories follow.
+* Do NOT use alphabetical or input order.
+* Examples:
+  - AI role → AI & LLM, APIs & Integration, Cloud, Web Development
+  - Data role → Data & Analytics, Cloud, Programming, Visualization
+  - Product role → Product & Strategy, Research, Tools, Technical
 
 QUALITY RULES:
-* Summary: 3–4 sentences max
-* Include at least 2 job-relevant keywords
-* Focus on alignment with the role
-* Max 4 bullets per entry
-* Use strong action verbs
-* Avoid repetition across bullets
-* Each bullet must add new information
+* Max 4 bullets per entry.
+* Use strong action verbs.
+* Avoid repetition across bullets.
+* Each bullet must add new information.
 
 IMPACT RULES:
-* Prefer: systems built, tools used, outcomes enabled
-* Highlight: automation, scalability, reliability, performance, or system capability
-* If metrics are not provided, focus on functional impact
+* Prefer: systems built, tools used, outcomes enabled.
+* If metrics are not provided, focus on functional impact and scope.
+* Do NOT fabricate metrics or outcomes not supported by input data.
 
 CERTIFICATION RULE:
-* Include ALL certifications provided in the input.
-* If 2-page limit is exceeded, remove certifications in this priority order:
-  1. First remove: Entry-level or foundational certifications 
-     (e.g., Cloud Practitioner, Azure Fundamentals, similar intro-level certs)
-  2. Then remove: Certifications unrelated to the target role
-     (e.g., remove cloud certs for a frontend role, remove networking certs for a data role)
-  3. Never remove: Certifications that directly match the target role keywords
-  4. Never remove: The most advanced certification in any given technology track
-* When in doubt, keep certifications — they add credibility.
+* Include ALL certifications from input.
+* If 2-page limit is exceeded, remove in this order:
+  1. Entry-level or foundational certs first.
+  2. Then certs unrelated to the target role.
+  3. Never remove certs matching role keywords.
+  4. Never remove the most advanced cert in any track.
 
-COMPRESSION RULES (CRITICAL FOR 2 PAGES):
-* Keep bullets concise (1 line each)
-* Remove weak, generic, or redundant bullets
-* Limit to:
-  - Max 4 experience entries
-  - Max 4 projects (choose strongest)
-  - Max 6–8 skill categories
-* Prioritize recent and relevant content
-
-POSITIONING:
-* Align tone with the job level
-* Emphasize strengths matching role focus
-* Avoid exaggeration or senior-level claims without evidence
+COMPRESSION RULES:
+* Bullets: 1 line each.
+* Max 4 experience entries.
+* Max 4 projects (strongest only).
+* Max 6–8 skill categories.
+* Prioritize recent and relevant.
 
 FINAL CHECK:
-* No duplicate entries across sections
-* Experience ≠ Projects duplication
-* Volunteer not included in experience
-* Projects not included in experience
-* JSON is valid
-* Content is concise and fits 2-page constraint
+* No duplicate entries across sections.
+* JSON is valid.
+* Fits 2-page constraint.
+* Title is believable and LinkedIn-consistent.
+* Summary leads with primary capability, not secondary skills.
+* Skills ordered by role relevance.
+* No bullet sounds inflated or undefendable in an interview.
+
+ALIGNMENT NOTE:
+* Preserve the candidate’s strongest and most proven experience, and ensure it is not removed or minimized during optimization.
+* Maintain a balanced representation of the candidate’s background, especially if it spans multiple areas of expertise. Avoid over-specializing the profile to match the target role too narrowly.
+* Use supporting experience as evidence of real-world contribution, practical impact, and consistent delivery in professional or project-based work.
 
 OUTPUT JSON SCHEMA:
 {

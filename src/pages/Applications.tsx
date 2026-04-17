@@ -238,19 +238,13 @@ export default function Applications() {
           className={filter === 'all' ? 'active' : ''}
           onClick={() => setFilter('all')}
         >
-          All ({applications.length})
+          All ({baseFiltered.length})
         </button>
         <button 
           className={filter === 'active' ? 'active' : ''}
           onClick={() => setFilter('active')}
         >
           Active ({statusCounts.active || 0})
-        </button>
-        <button 
-          className={filter === 'applied' ? 'active' : ''}
-          onClick={() => setFilter('applied')}
-        >
-          Applied ({statusCounts.applied || 0})
         </button>
         <button 
           className={filter === 'interview' ? 'active' : ''}
