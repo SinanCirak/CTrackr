@@ -9,6 +9,7 @@ import './Applications.css';
 
 export default function Applications() {
   const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+  const isActiveApplication = (status: ApplicationStatus) => ['applied', 'interview', 'offer'].includes(status);
   const { user } = useAuth();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,14 +133,17 @@ export default function Applications() {
   const statusCounts = useMemo(() => {
     return baseFiltered.reduce<Record<string, number>>((acc, app) => {
       acc[app.status] = (acc[app.status] || 0) + 1;
+      if (isActiveApplication(app.status)) {
+        acc.active = (acc.active || 0) + 1;
+      }
       return acc;
     }, {});
   }, [baseFiltered]);
 
   const filteredApplications = useMemo(() => {
-    return filter === 'all'
-      ? baseFiltered
-      : baseFiltered.filter(app => app.status === filter);
+    if (filter === 'all') return baseFiltered;
+    if (filter === 'active') return baseFiltered.filter(app => isActiveApplication(app.status));
+    return baseFiltered.filter(app => app.status === filter);
   }, [baseFiltered, filter]);
 
   const handleStatusChange = async (appId: string, newStatus: ApplicationStatus) => {
@@ -235,6 +239,12 @@ export default function Applications() {
           onClick={() => setFilter('all')}
         >
           All ({applications.length})
+        </button>
+        <button 
+          className={filter === 'active' ? 'active' : ''}
+          onClick={() => setFilter('active')}
+        >
+          Active ({statusCounts.active || 0})
         </button>
         <button 
           className={filter === 'applied' ? 'active' : ''}
