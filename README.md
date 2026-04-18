@@ -9,20 +9,25 @@ I built CTrackr to replace spreadsheets and manual tracking for job applications
 This project demonstrates:
 - **Full-stack development** with modern React and TypeScript
 - **Serverless architecture** using AWS Lambda, API Gateway, and DynamoDB
-- **Infrastructure as Code** with Terraform for reproducible deployments
-- **Production-ready features** including authentication, file management, and user data isolation
+- **Infrastructure as Code** with Terraform for reproducible deployments (applied manually when infrastructure changes)
+- **Continuous delivery** for the static frontend via GitHub Actions (build → S3 → CloudFront invalidation)
+- **Production-ready features** including authentication, file management, user data isolation, and AI-assisted documents
 - **Best practices** in security, scalability, and maintainability
 
 ## 🚀 Features
 
 ### Job Application Management
 - **CRUD Operations**: Create, read, update, and delete job applications
-- **Status Tracking**: Track applications through various stages (Applied, Interview, Offer, Rejected, etc.)
-- **Advanced Filtering**: Filter applications by status, company, date, and more
-- **Detailed Information**: Store company details, position, salary, location, contact information, notes, and more
+- **Status Tracking**: Full lifecycle including Applied, Interview, Offer, Rejected, Withdrawn, and Accepted
+- **Dashboard Filters**: Status tabs (including “Active” for in-progress pipelines), search by company/position, and applied-date range
+- **CSV Export**: Download the current filtered list as a UTF-8 CSV for reporting
+- **Client-Side Cache**: Recent application lists are cached locally for faster loads, with background refresh
+- **Detailed Information**: Store company details, position, salary, location, contact information, job URL, notes, job description, and requirements
 - **Interview Management**: Track interview dates, times, places, and links
-- **File Attachments**: Upload and manage CV and Cover Letter files for each application
-- **S3 File Management**: Automatic file deletion when applications are removed
+- **File Attachments**: Upload and manage CV and cover letter files; optional **version history** per document (uploaded vs AI-generated)
+- **Job Posting URL**: Paste a job URL to **extract** structured fields (company, role, description, requirements, contacts) via the backend
+- **Match Score**: AI-assisted **fit score** and narrative (strengths/gaps) comparing your profile to the role
+- **S3 File Management**: Automatic file deletion when applications are removed; cleanup paths for generated documents when appropriate
 
 ### User Profile Management
 - **Comprehensive Profile**: Manage personal information, contact details, and professional links
@@ -34,11 +39,12 @@ This project demonstrates:
 - **Languages**: Track language proficiencies
 - **PDF Generation**: Generate professional CV/Resume PDFs from profile data (client-side)
 
-### AI-Assisted Draft Generation (Future Feature)
-- **AWS Bedrock Integration**: AI-assisted CV and cover letter tailoring using Amazon Bedrock
-- **ATS-Optimized Content**: Designs ATS-aware keywords and content structure based on user profile and job requirements
-- **Smart Drafting**: Generates personalized drafts for users to review and finalize
-- **Context-Aware**: Leverages job descriptions and requirements to create targeted documents
+### AI-Assisted Documents & Job Insights
+- **AWS Bedrock**: Server-side CV and cover letter generation (structured prompts, PDF output, upload to S3)
+- **Generate Documents UI**: Routes `/applications/:id/generate` and `/generate-documents` for tailoring documents to a specific application
+- **Inline Generation**: Generate CV/cover letter while creating or editing an application, with version tracking
+- **ATS-Oriented Output**: Prompts emphasize clear structure and role-relevant keywords from your profile and the job text
+- **Context-Aware**: Uses job description, requirements, and parsed job metadata when available
 
 ### Authentication & Security
 - **AWS Cognito Integration**: Secure user authentication and authorization
@@ -62,6 +68,7 @@ This project demonstrates:
 - **API**: AWS API Gateway (HTTP API)
 - **Database**: AWS DynamoDB
 - **File Storage**: AWS S3
+- **Generative AI**: Amazon Bedrock (foundation models for document generation, job parsing, and match scoring)
 - **CDN**: AWS CloudFront
 - **DNS**: AWS Route 53
 - **SSL/TLS**: AWS Certificate Manager (ACM)
@@ -69,7 +76,8 @@ This project demonstrates:
 - **Authentication**: AWS Cognito
 
 ### Infrastructure
-- **IaC**: Terraform
+- **IaC**: Terraform (infrastructure and Lambda packaging; run locally or in your pipeline when you change backend/IaC)
+- **CI/CD**: GitHub Actions deploys the **Vite frontend** to S3 and invalidates CloudFront on pushes to `main` (Terraform is **not** part of this workflow)
 - **Region**: ca-central-1 (primary), us-east-1 (CloudFront certificates)
 - **Domain**: Custom domain support via Route 53
 
@@ -81,20 +89,22 @@ CTrackr/
 │   ├── components/              # Reusable React components
 │   │   ├── Layout.tsx          # Main layout with navigation
 │   │   └── ProtectedRoute.tsx  # Route protection component
-│   ├── pages/                   # Page components
+│   ├── pages/                   # Page components (with co-located CSS where used)
 │   │   ├── Home.tsx            # Landing page
 │   │   ├── Login.tsx           # Authentication page
-│   │   ├── Applications.tsx    # Application list page
+│   │   ├── Applications.tsx    # Application list (filters, export, cache)
 │   │   ├── ApplicationDetail.tsx # Application detail page
-│   │   ├── NewApplication.tsx  # Create application page
+│   │   ├── NewApplication.tsx  # Create/edit application (uploads, AI generation, job URL)
+│   │   ├── GenerateDocuments.tsx # AI CV / cover letter generation flow
 │   │   └── Profile.tsx         # User profile management
 │   ├── contexts/                # React contexts
 │   │   └── AuthContext.tsx     # Authentication context
 │   ├── utils/                   # Utility functions
 │   │   ├── api.ts              # API client functions
-│   │   └── auth.ts             # Authentication utilities
+│   │   ├── auth.ts             # Authentication utilities
+│   │   └── date.ts             # Date formatting helpers for display and filters
 │   ├── types/                   # TypeScript type definitions
-│   │   ├── application.ts      # Application types
+│   │   ├── application.ts      # Application types (statuses, versions, parsed job)
 │   │   └── user.ts             # User profile types
 │   └── vite-env.d.ts           # Vite environment types
 ├── lambda/                       # AWS Lambda functions
@@ -103,6 +113,9 @@ CTrackr/
 │   ├── list-applications/      # List applications (with user filtering)
 │   ├── update-application/     # Update application
 │   ├── delete-application/     # Delete application + S3 files
+│   ├── get-job-info/           # Extract job fields from a posting URL (Bedrock)
+│   ├── match-score/            # Profile vs job fit score (Bedrock)
+│   ├── generate-documents/     # Generate CV / cover letter PDFs (Bedrock + S3)
 │   ├── get-profile/            # Get user profile
 │   ├── update-profile/         # Update user profile
 │   ├── get-upload-url/         # Generate S3 presigned URLs
@@ -114,6 +127,8 @@ CTrackr/
 │   └── terraform.tfvars.example # Example configuration
 ├── public/                       # Static assets
 │   └── logo.svg                # Application logo
+├── screenshots/                  # README screenshots (optional)
+├── .github/workflows/            # CI/CD: frontend deploy to S3 + CloudFront
 └── package.json                 # Frontend dependencies
 ```
 
@@ -152,6 +167,9 @@ cd lambda/get-profile && npm install && cd ../..
 cd lambda/update-profile && npm install && cd ../..
 cd lambda/get-upload-url && npm install && cd ../..
 cd lambda/delete-file && npm install && cd ../..
+cd lambda/get-job-info && npm install && cd ../..
+cd lambda/match-score && npm install && cd ../..
+cd lambda/generate-documents && npm install && cd ../..
 ```
 
 4. **Configure Terraform variables:**
@@ -219,6 +237,14 @@ VITE_AWS_REGION=ca-central-1
 - `PUT /applications/{id}` - Update an application
 - `DELETE /applications/{id}` - Delete an application and associated S3 files
 
+### Job insights & AI documents
+- `POST /job-info` - Extract structured fields from a job posting URL  
+  - Body: `{ jobUrl }`
+- `POST /match-score` - Score how well a user profile matches a job application payload  
+  - Body: `{ userProfile, jobApplication }`
+- `POST /generate-documents` - Generate CV or cover letter PDF (uploads to S3; returns URLs/keys)  
+  - Body: `{ userProfile, jobApplication, documentType, timezoneOffset }` (and related fields as implemented)
+
 ### Profile
 - `GET /profile?userId={userId}` - Get user profile
 - `PUT /profile?userId={userId}` - Update user profile
@@ -246,6 +272,10 @@ VITE_AWS_REGION=ca-central-1
   - `cvFileKey` (String) - S3 key for CV file
   - `coverLetterUrl` (String) - Cover letter file URL
   - `coverLetterFileKey` (String) - S3 key for cover letter file
+  - `jobDescription` (String) - Job description text when captured
+  - `requirements` (String) - Requirements / qualifications text when captured
+  - `cvVersions` / `coverLetterVersions` (List) - Optional per-document version history (uploaded vs generated)
+  - `parsedJob` (Map) - Optional structured metadata from job URL parsing / AI prep
   - `createdAt` (String) - Creation timestamp
   - `updatedAt` (String) - Last update timestamp
   - And more...
@@ -307,18 +337,21 @@ VITE_AWS_REGION=ca-central-1
     - Custom domain support (if domain provided)
 
 ### Compute & API
-- **AWS Lambda** (9 functions):
+- **AWS Lambda** (12 functions):
   - `create-application` - Create new job applications
   - `get-application` - Retrieve single application
   - `list-applications` - List applications with user filtering
   - `update-application` - Update application details
   - `delete-application` - Delete application and S3 files
+  - `get-job-info` - Extract job fields from a posting URL (Bedrock)
+  - `match-score` - Profile vs job fit score and narrative (Bedrock)
+  - `generate-documents` - Generate CV / cover letter PDFs (Bedrock, S3 upload)
   - `get-profile` - Get user profile
   - `update-profile` - Update user profile
   - `get-upload-url` - Generate S3 presigned URLs
   - `delete-file` - Delete files from S3
 - **AWS API Gateway** (HTTP API):
-  - 9 API routes
+  - 12 API routes (applications, profile, uploads, job-info, match-score, generate-documents)
   - CORS enabled
   - Auto-deploy stage
   - Lambda integrations
@@ -401,18 +434,23 @@ VITE_AWS_REGION=ca-central-1
 *Landing page with hero section, feature highlights, and call-to-action buttons*
 
 #### Applications Dashboard
-![Applications Dashboard - All](./screenshots/Aplications_1.png)
+The list view combines **status tabs** (including Active), **search** by company or position, an **applied-date range** (from / to), and **CSV export** of whatever is currently shown.
+
+![Applications Dashboard - All](./screenshots/Applications_1.png)
 *Applications dashboard with summary statistics and application cards*
 
 ![Applications Dashboard - Filtered](./screenshots/Applications_2.png)
-*Filtered view showing applications by status*
+*Filtered list (e.g. by status); the same toolbar also supports search, date range, and export*
 
-![Applications Dashboard - Filter Tabs](./screenshots/Filter.png)
-*Status filter tabs for easy navigation*
+![Applications Dashboard - Filters & export](./screenshots/Filter.png)
+*Status filters together with search, applied-date range, and CSV export*
 
 #### New Application Form
 ![New Application Form - Overview](./screenshots/NewApplication_1.png)
 *Main form fields for company, position, dates, and contact information*
+
+![New Application Form - Job URL & Get Information](./screenshots/NewApplication_Get.png)
+*Job posting URL and Get Information control to extract fields from the listing*
 
 ![New Application Form - Job Details](./screenshots/NewApplication_2.png)
 *Job details section with description and requirements fields*
@@ -425,6 +463,9 @@ VITE_AWS_REGION=ca-central-1
 
 ![New Application Form - Documents Uploaded](./screenshots/NewApplication_5.png)
 *Documents section with uploaded files displayed*
+
+![New Application Form - Generate documents & Match Score](./screenshots/NewApplication_Generate_Match.png)
+*Generate CV / Cover Letter and Match Score section (profile vs role)*
 
 #### Application Detail/Edit
 ![Application Edit](./screenshots/Edit.png)
@@ -456,13 +497,16 @@ VITE_AWS_REGION=ca-central-1
 ### Application Management
 - **Applications Dashboard**:
   - Summary statistics cards (Total Applications, In Interview, Offers)
-  - Status filter tabs (All, Applied, Interview, Offer, Rejected)
+  - Status filter tabs (All, Active, Applied, Interview, Offer, Rejected, Withdrawn, Accepted)
+  - Search, applied-date range, and CSV export
   - Application cards with company, position, date, location, and document indicators
   - Interactive status dropdown for quick updates
 - **New Application Form**:
   - Comprehensive form with company, position, dates, location, salary fields
+  - Job posting URL with **extract** flow and **match score** against your profile
   - Job details section for descriptions and requirements
   - File upload areas for CV and Cover Letter with drag-and-drop support
+  - Optional **AI-generated** CV/cover letter with version history alongside uploads
   - Real-time file upload progress and management
 - **Application Detail/Edit**:
   - Modal or dedicated page for editing application details
@@ -491,7 +535,15 @@ VITE_AWS_REGION=ca-central-1
 - **Structured Naming**: Automatic file naming with user ID, category, company, date, and time
 - **Timezone Support**: Local timezone-aware file naming
 - **Automatic Cleanup**: Files deleted when applications are removed
-- **Versioning**: S3 versioning enabled for file recovery
+- **Versioning**: S3 versioning enabled for file recovery; application records can track **uploaded vs generated** document versions
+
+### Job URL & fit analysis
+- **Extract job info**: POST `/job-info` parses a posting URL to populate company, role, description, requirements, and contacts where possible
+- **Match score**: POST `/match-score` returns a score, summary, strengths, and gaps for a profile–role pair
+
+### AI document generation
+- **Bedrock-backed**: `generate-documents` Lambda builds PDFs and stores them in the uploads bucket
+- **UI entry points**: Dedicated `/generate-documents` and `/applications/:id/generate` routes, plus inline actions on the new-application flow
 
 ### Profile Management
 - **Categorized Skills**: Organize skills into categories (e.g., "Frontend", "Backend", "DevOps")
@@ -522,6 +574,7 @@ VITE_AWS_REGION=ca-central-1
 - **AWS DynamoDB**: NoSQL database
 - **AWS S3**: File storage
 - **AWS CloudFront**: CDN
+- **Amazon Bedrock**: Model inference for documents, job parsing, and match scoring
 - **AWS Cognito**: Authentication
 - **AWS SES**: Email service
 - **AWS Route 53**: DNS management
@@ -543,6 +596,8 @@ VITE_AWS_REGION=ca-central-1
 ```
 
 ### Terraform (terraform.tfvars)
+See `terraform/terraform.tfvars.example` for a full example. Important values include:
+
 ```hcl
 aws_region = "ca-central-1"
 domain_name = "ctrackr.example.com"
@@ -550,37 +605,50 @@ ses_sender_email = "noreply@example.com"
 project_name = "ctrackr"
 environment = "prod"
 bucket_name = "ctrackr-website-prod"
+bedrock_model_id = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"        # example — use models enabled in your account/region
+bedrock_haiku_model_id = "anthropic.claude-3-haiku-20240307-v1:0"            # example — used for lighter parsing/scoring tasks
 ```
 
 ## 🚀 Deployment
 
-### Initial Deployment
+### Frontend: GitHub Actions (automatic)
 
-1. **Deploy Infrastructure:**
+Pushes to the `main` branch trigger the workflow in `.github/workflows/deploy.yml`:
+
+1. `npm install` + `npm run build` (Vite output in `dist/`)
+2. `aws s3 sync dist/` to the website bucket (e.g. `ctrackr-website-prod`)
+3. CloudFront invalidation for `/*`
+
+Configure repository **Secrets**: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` with permission to sync to the bucket and create invalidations. The workflow does **not** run Terraform or deploy Lambda code.
+
+### Infrastructure & Lambda (Terraform, manual)
+
+Terraform provisions API Gateway, DynamoDB, Cognito, S3, CloudFront, Lambda packages, and IAM. Run it when you change infrastructure or backend Lambda source:
+
 ```bash
 cd terraform
 terraform init
 terraform apply
 ```
 
-2. **Build Frontend:**
+Lambda functions are packaged and uploaded by Terraform when you apply.
+
+### Initial full setup (first time)
+
+1. **Deploy infrastructure** (see above).
+2. **Configure frontend env** (`.env` / production build) with `VITE_API_BASE_URL`, Cognito IDs, and region from Terraform outputs.
+3. **Deploy frontend** either by pushing to `main` (recommended) or manually:
 ```bash
 npm run build
-```
-
-3. **Deploy Frontend:**
-```bash
 aws s3 sync dist/ s3://ctrackr-website-prod --delete
-aws cloudfront create-invalidation --distribution-id E3OJLQS0UXAUC5 --paths "/*"
+aws cloudfront create-invalidation --distribution-id YOUR_DISTRIBUTION_ID --paths "/*"
 ```
+Use `YOUR_DISTRIBUTION_ID` from `terraform output` (example: `E3OJLQS0UXAUC5`).
 
-### Updating Lambda Functions
+### Updating Frontend (manual alternative)
 
-Lambda functions are automatically deployed via Terraform when you run `terraform apply`. The Terraform configuration packages and uploads each Lambda function.
+If you are not using GitHub Actions for a given build:
 
-### Updating Frontend
-
-After making frontend changes:
 ```bash
 npm run build
 aws s3 sync dist/ s3://ctrackr-website-prod --delete
@@ -593,10 +661,13 @@ aws cloudfront create-invalidation --distribution-id YOUR_DISTRIBUTION_ID --path
 
 - [ ] User registration and login
 - [ ] Create new application
+- [ ] Extract fields from a job posting URL (`/job-info`)
+- [ ] Run match score against profile (`/match-score`)
+- [ ] Generate AI CV or cover letter (`/generate-documents` or inline on new application)
 - [ ] Upload CV and Cover Letter files
 - [ ] Delete files from S3
 - [ ] Update application details
-- [ ] Filter applications by status
+- [ ] Filter applications by status, search, date range; export CSV
 - [ ] Create and update user profile
 - [ ] Generate PDF CV from profile
 - [ ] Delete application (should also delete S3 files)
