@@ -81,6 +81,26 @@ This project demonstrates:
 - **Region**: ca-central-1 (primary), us-east-1 (CloudFront certificates)
 - **Domain**: Custom domain support via Route 53
 
+## 🔄 CI/CD Pipeline
+
+This project uses GitHub Actions to automate build and deployment processes.
+
+### Workflow Overview
+- **Trigger**: Push to `main` branch
+- **Build Step**:
+  - Install dependencies
+  - Build React application using Vite
+- **Deploy Step**:
+  - Upload build files to AWS S3 (static hosting)
+- **CDN Invalidation**:
+  - Invalidate AWS CloudFront cache to reflect latest changes
+
+### Benefits
+- Automated and consistent deployments
+- Reduced manual errors
+- Faster release cycles
+- Scalable deployment workflow
+
 ## 📁 Project Structure
 
 ```
