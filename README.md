@@ -43,8 +43,9 @@ This project demonstrates:
 - **AWS Bedrock**: Server-side CV and cover letter generation (structured prompts, PDF output, upload to S3)
 - **Generate Documents UI**: Routes `/applications/:id/generate` and `/generate-documents` for tailoring documents to a specific application
 - **Inline Generation**: Generate CV/cover letter while creating or editing an application, with version tracking
-- **ATS-Oriented Output**: Prompts emphasize clear structure and role-relevant keywords from your profile and the job text
-- **Context-Aware**: Uses job description, requirements, and parsed job metadata when available
+- **Profile-based tailoring**: Documents are shaped from **your saved profile** and the **job/application fields** you entered (e.g. description, requirements, company, role). The goal is to **rephrase, reorder, and emphasize** that material for the posting—not to introduce new factual claims (employers, dates, degrees, or skills you did not provide)
+- **ATS-Oriented Output**: Prompts favor clear structure and role-relevant wording drawn from those same inputs
+- **Context-Aware**: Uses job description, requirements, and parsed job metadata when you have supplied them
 
 ### Authentication & Security
 - **AWS Cognito Integration**: Secure user authentication and authorization
@@ -563,6 +564,7 @@ The list view combines **status tabs** (including Active), **search** by company
 
 ### AI document generation
 - **Bedrock-backed**: `generate-documents` Lambda builds PDFs and stores them in the uploads bucket
+- **Inputs**: Uses the profile and application payload you send (`userProfile`, `jobApplication`); tailoring reorganizes and highlights existing content rather than adding invented biographical detail
 - **UI entry points**: Dedicated `/generate-documents` and `/applications/:id/generate` routes, plus inline actions on the new-application flow
 
 ### Profile Management
