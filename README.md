@@ -2,7 +2,13 @@
 
 [![CI](https://github.com/SinanCirak/CTrackr/actions/workflows/deploy.yml/badge.svg)](https://github.com/SinanCirak/CTrackr/actions/workflows/deploy.yml)
 
+**Tech Stack:** AWS (Lambda, API Gateway, DynamoDB, S3, CloudFront), Terraform, React, TypeScript, GitHub Actions, Amazon Bedrock
+
 A comprehensive full-stack application for tracking job applications and managing user profiles. Built with React, TypeScript, AWS Serverless Architecture, and Infrastructure as Code.
+
+## 📈 Impact
+
+Designed to replace manual job tracking workflows with a scalable, automated system, reducing dependency on spreadsheets and improving organization for job seekers.
 
 ## 💡 Why This Project?
 
@@ -110,6 +116,10 @@ This project uses GitHub Actions to automate build and deployment processes.
   - Upload build files to AWS S3 (static hosting)
 - **CDN Invalidation**:
   - Invalidate AWS CloudFront cache to reflect latest changes
+
+### Deployment flow
+
+**GitHub** → **GitHub Actions** → **S3** → **CloudFront** → **End Users**
 
 ### Benefits
 - Automated and consistent deployments
