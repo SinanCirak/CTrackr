@@ -1,5 +1,7 @@
 # CTrackr - Job Application Tracker
 
+[![CI](https://github.com/SinanCirak/CTrackr/actions/workflows/deploy.yml/badge.svg)](https://github.com/SinanCirak/CTrackr/actions/workflows/deploy.yml)
+
 A comprehensive full-stack application for tracking job applications and managing user profiles. Built with React, TypeScript, AWS Serverless Architecture, and Infrastructure as Code.
 
 ## 💡 Why This Project?
@@ -77,10 +79,23 @@ This project demonstrates:
 - **Authentication**: AWS Cognito
 
 ### Infrastructure
-- **IaC**: Terraform (infrastructure and Lambda packaging; run locally or in your pipeline when you change backend/IaC)
+- **IaC**: Terraform (infrastructure and Lambda packaging; applied manually when backend or infra changes—see **Infrastructure strategy** in the CI/CD section below)
 - **CI/CD**: GitHub Actions deploys the **Vite frontend** to S3 and invalidates CloudFront on pushes to `main` (Terraform is **not** part of this workflow)
 - **Region**: ca-central-1 (primary), us-east-1 (CloudFront certificates)
 - **Domain**: Custom domain support via Route 53
+
+## ⚙️ Design Decisions
+
+- **Serverless (Lambda + API Gateway)**: Chosen to reduce day‑to‑day operations, scale with usage, and pay primarily for what runs—not for idle servers.
+- **S3 presigned uploads**: Browsers upload files directly to S3 so large binaries do not pass through API Gateway/Lambda, keeping APIs small and costs predictable.
+- **DynamoDB**: Single‑table style access per entity with partition keys suited to user‑scoped queries; low‑latency reads/writes and elastic scale without cluster management.
+- **GitHub Actions for the frontend**: Every merge to `main` produces the same `npm run build` artifact and deploys it to S3 + CloudFront invalidation—repeatable releases with a visible pipeline status (badge above).
+
+## 🔍 Observability & Reliability
+
+- **CloudWatch**: Lambda functions emit logs and standard metrics for debugging and monitoring API behavior in production.
+- **Stateless compute**: API handlers are stateless Lambdas behind HTTP API Gateway, so concurrency scales horizontally without session affinity.
+- **API error handling**: Lambda integrations return structured error responses where applicable so clients can surface failures clearly; retries and partial failures are handled at the integration layer as designed.
 
 ## 🔄 CI/CD Pipeline
 
@@ -101,6 +116,10 @@ This project uses GitHub Actions to automate build and deployment processes.
 - Reduced manual errors
 - Faster release cycles
 - Scalable deployment workflow
+
+### Infrastructure strategy
+
+Infrastructure is managed separately using Terraform and applied manually to ensure controlled and reviewed changes in production environments. The workflow above deploys only the **static frontend** (S3 + CloudFront); it does **not** run Terraform or publish Lambda code.
 
 ## 📁 Project Structure
 
