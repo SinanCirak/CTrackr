@@ -71,6 +71,7 @@ function buildFormData(data: JobApplication): UpdateApplicationInput {
 }
 
 export default function ApplicationDetail() {
+  const REJECTED_FOLLOW_UP_NOTE = 'Follow-up completed because application was rejected.';
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -210,7 +211,16 @@ export default function ApplicationDetail() {
     if (!id) return;
 
     try {
-      const updated = await updateApplication(id, formData);
+      const payload: UpdateApplicationInput =
+        formData.status === 'rejected'
+          ? {
+              ...formData,
+              followUpStatus: 'completed',
+              followUpMessage:
+                formData.followUpMessage?.trim() || REJECTED_FOLLOW_UP_NOTE,
+            }
+          : formData;
+      const updated = await updateApplication(id, payload);
       setApplication(updated);
       setFormData(buildFormData(updated));
       if (userId) {

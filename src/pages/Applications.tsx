@@ -10,6 +10,7 @@ import './Applications.css';
 export default function Applications() {
   const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
   const isActiveApplication = (status: ApplicationStatus) => ['applied', 'interview', 'offer'].includes(status);
+  const REJECTED_FOLLOW_UP_NOTE = 'Follow-up completed because application was rejected.';
   const { user } = useAuth();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,6 +144,9 @@ export default function Applications() {
   const followUpCounts = useMemo(() => {
     return baseFiltered.reduce(
       (acc, app) => {
+        if (app.status === 'rejected') {
+          return acc;
+        }
         const status = app.followUpStatus || 'pending';
         if (status === 'completed') {
           acc.completed += 1;
@@ -158,15 +162,27 @@ export default function Applications() {
   const filteredApplications = useMemo(() => {
     if (filter === 'all') return baseFiltered;
     if (filter === 'active') return baseFiltered.filter(app => isActiveApplication(app.status));
-    if (filter === 'followup-pending') return baseFiltered.filter(app => (app.followUpStatus || 'pending') === 'pending');
-    if (filter === 'followup-completed') return baseFiltered.filter(app => app.followUpStatus === 'completed');
+    if (filter === 'followup-pending') {
+      return baseFiltered.filter(app => app.status !== 'rejected' && (app.followUpStatus || 'pending') === 'pending');
+    }
+    if (filter === 'followup-completed') {
+      return baseFiltered.filter(app => app.followUpStatus === 'completed' || app.status === 'rejected');
+    }
     return baseFiltered.filter(app => app.status === filter);
   }, [baseFiltered, filter]);
 
   const handleStatusChange = async (appId: string, newStatus: ApplicationStatus) => {
     try {
       setUpdatingStatus(appId);
-      const updated = await updateApplication(appId, { status: newStatus });
+      const updatePayload =
+        newStatus === 'rejected'
+          ? {
+              status: newStatus,
+              followUpStatus: 'completed' as const,
+              followUpMessage: REJECTED_FOLLOW_UP_NOTE,
+            }
+          : { status: newStatus };
+      const updated = await updateApplication(appId, updatePayload);
       setApplications(prev => prev.map(app => app.id === appId ? updated : app));
       setOpenStatusMenu(null);
     } catch (err) {
