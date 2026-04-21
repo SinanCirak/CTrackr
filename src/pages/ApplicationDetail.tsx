@@ -87,6 +87,7 @@ export default function ApplicationDetail() {
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const cvFileInputRef = useRef<HTMLInputElement>(null);
   const coverLetterFileInputRef = useRef<HTMLInputElement>(null);
+  const userId = user?.userId || (user as any)?.sub || (user as any)?.username;
   const profileOwnerName =
     (user as any)?.name ||
     (user as any)?.given_name ||
@@ -212,6 +213,29 @@ export default function ApplicationDetail() {
       const updated = await updateApplication(id, formData);
       setApplication(updated);
       setFormData(buildFormData(updated));
+      if (userId) {
+        const cacheKey = `applications_cache_${userId}`;
+        const cacheRaw = localStorage.getItem(cacheKey);
+        if (cacheRaw) {
+          try {
+            const parsedCache = JSON.parse(cacheRaw) as
+              | JobApplication[]
+              | { items?: JobApplication[]; savedAt?: number };
+            const existingItems = Array.isArray(parsedCache)
+              ? parsedCache
+              : Array.isArray(parsedCache?.items)
+                ? parsedCache.items
+                : [];
+            const nextItems = existingItems.map(app => (app.id === updated.id ? updated : app));
+            localStorage.setItem(cacheKey, JSON.stringify({
+              items: nextItems,
+              savedAt: Date.now(),
+            }));
+          } catch {
+            // Ignore cache parse errors and continue with fresh state.
+          }
+        }
+      }
       setCvFile(null);
       setCoverLetterFile(null);
       setEditing(false);
