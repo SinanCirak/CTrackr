@@ -179,6 +179,7 @@ export default function Applications() {
           ? {
               status: newStatus,
               followUpStatus: 'completed' as const,
+              followUpDate: new Date().toISOString().slice(0, 10),
               followUpMessage: REJECTED_FOLLOW_UP_NOTE,
             }
           : { status: newStatus };

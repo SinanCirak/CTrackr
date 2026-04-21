@@ -216,8 +216,8 @@ export default function ApplicationDetail() {
           ? {
               ...formData,
               followUpStatus: 'completed',
-              followUpMessage:
-                formData.followUpMessage?.trim() || REJECTED_FOLLOW_UP_NOTE,
+              followUpDate: new Date().toISOString().slice(0, 10),
+              followUpMessage: REJECTED_FOLLOW_UP_NOTE,
             }
           : formData;
       const updated = await updateApplication(id, payload);
