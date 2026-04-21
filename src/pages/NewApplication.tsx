@@ -43,16 +43,35 @@ export default function NewApplication() {
     followUpStatus: 'pending',
     followUpDate: '',
     followUpMessage: '',
+    followUpChannel: 'email',
+    followUpContact: '',
+    followUpContactInfo: '',
     roleSummary: '',
     relatedProject: '',
     cvVersions: [],
     coverLetterVersions: [],
   });
 
+  const profileOwnerName =
+    (user as any)?.name ||
+    (user as any)?.given_name ||
+    (user as any)?.preferred_username ||
+    (user as any)?.email ||
+    'Your Name';
+
+  const getGreetingName = (rawContact?: string) => {
+    const cleaned = (rawContact || '').trim();
+    if (!cleaned) return 'there';
+    return cleaned.split(/\s+/)[0];
+  };
+
   const buildFollowUpMessage = (data: CreateApplicationInput) => {
-    const contact = data.contactName?.trim() || 'Hiring Team';
+    const contact = data.followUpContact?.trim() || data.contactName?.trim() || '';
+    const greetingName = getGreetingName(contact);
     const role = data.position?.trim() || 'the role';
     const company = data.company?.trim() || 'your company';
+    const channel = data.followUpChannel === 'linkedin' ? 'LinkedIn' : 'email';
+    const contactInfo = data.followUpContactInfo?.trim();
     const roleSummary = data.roleSummary?.trim();
     const relatedProject = data.relatedProject?.trim();
     const highlights = [roleSummary, relatedProject ? `A related project is ${relatedProject}.` : '']
@@ -60,13 +79,16 @@ export default function NewApplication() {
       .join(' ');
 
     return [
-      `Hi ${contact},`,
+      `Hi ${greetingName},`,
       '',
-      `I wanted to follow up on my application for ${role} at ${company}.`,
+      `I hope you're doing well. I wanted to quickly follow up on my application for the ${role} role at ${company}.`,
+      `I am reaching out via ${channel}.`,
+      contactInfo ? `Contact info: ${contactInfo}.` : '',
       highlights,
-      'I remain very interested in the opportunity and would be glad to share any additional details.',
+      'I am still very interested in the opportunity and would be happy to share any additional information if helpful.',
       '',
-      'Best regards,',
+      'Thanks,',
+      profileOwnerName,
     ].filter(Boolean).join('\n');
   };
 
@@ -758,6 +780,30 @@ export default function NewApplication() {
               <label htmlFor="relatedProject">Related Project</label>
               <input type="text" id="relatedProject" name="relatedProject" value={formData.relatedProject || ''} onChange={handleChange} />
             </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="followUpChannel">Follow-up Channel</label>
+              <select id="followUpChannel" name="followUpChannel" value={formData.followUpChannel || 'email'} onChange={handleChange}>
+                <option value="email">Email</option>
+                <option value="linkedin">LinkedIn</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="followUpContact">Follow-up Contact</label>
+              <input type="text" id="followUpContact" name="followUpContact" value={formData.followUpContact || ''} onChange={handleChange} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label htmlFor="followUpContactInfo">Follow-up Contact Info</label>
+            <input
+              type="text"
+              id="followUpContactInfo"
+              name="followUpContactInfo"
+              value={formData.followUpContactInfo || ''}
+              onChange={handleChange}
+              placeholder={formData.followUpChannel === 'linkedin' ? 'LinkedIn profile URL' : 'Email address'}
+            />
           </div>
           <div className="form-group">
             <label htmlFor="followUpMessage">Follow-up Message</label>

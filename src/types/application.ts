@@ -6,6 +6,8 @@ export type ApplicationStatus =
   | 'withdrawn'
   | 'accepted';
 
+export type FollowUpChannel = 'email' | 'linkedin';
+
 export interface JobApplication {
   id: string;
   userId?: string; // Optional for backward compatibility
@@ -37,6 +39,9 @@ export interface JobApplication {
   followUpStatus?: 'pending' | 'completed';
   followUpDate?: string;
   followUpMessage?: string;
+  followUpChannel?: FollowUpChannel;
+  followUpContact?: string;
+  followUpContactInfo?: string;
   roleSummary?: string;
   relatedProject?: string;
   createdAt: string;
@@ -100,6 +105,9 @@ export interface CreateApplicationInput {
   followUpStatus?: 'pending' | 'completed';
   followUpDate?: string;
   followUpMessage?: string;
+  followUpChannel?: FollowUpChannel;
+  followUpContact?: string;
+  followUpContactInfo?: string;
   roleSummary?: string;
   relatedProject?: string;
 }
@@ -133,6 +141,9 @@ export interface UpdateApplicationInput {
   followUpStatus?: 'pending' | 'completed';
   followUpDate?: string;
   followUpMessage?: string;
+  followUpChannel?: FollowUpChannel;
+  followUpContact?: string;
+  followUpContactInfo?: string;
   roleSummary?: string;
   relatedProject?: string;
 }
