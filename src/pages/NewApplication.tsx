@@ -40,9 +40,35 @@ export default function NewApplication() {
     notes: '',
     jobDescription: '',
     requirements: '',
+    followUpStatus: 'pending',
+    followUpDate: '',
+    followUpMessage: '',
+    roleSummary: '',
+    relatedProject: '',
     cvVersions: [],
     coverLetterVersions: [],
   });
+
+  const buildFollowUpMessage = (data: CreateApplicationInput) => {
+    const contact = data.contactName?.trim() || 'Hiring Team';
+    const role = data.position?.trim() || 'the role';
+    const company = data.company?.trim() || 'your company';
+    const roleSummary = data.roleSummary?.trim();
+    const relatedProject = data.relatedProject?.trim();
+    const highlights = [roleSummary, relatedProject ? `A related project is ${relatedProject}.` : '']
+      .filter(Boolean)
+      .join(' ');
+
+    return [
+      `Hi ${contact},`,
+      '',
+      `I wanted to follow up on my application for ${role} at ${company}.`,
+      highlights,
+      'I remain very interested in the opportunity and would be glad to share any additional details.',
+      '',
+      'Best regards,',
+    ].filter(Boolean).join('\n');
+  };
 
   const getMatchScoreMeta = (score: number | null) => {
     if (score === null) {
@@ -706,6 +732,56 @@ export default function NewApplication() {
             rows={5}
             placeholder="Additional notes about this application..."
           />
+        </div>
+
+        <div className="form-section">
+          <h4>Follow-up</h4>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="followUpStatus">Follow-up Status</label>
+              <select id="followUpStatus" name="followUpStatus" value={formData.followUpStatus || 'pending'} onChange={handleChange}>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="followUpDate">Follow-up Date</label>
+              <input type="date" id="followUpDate" name="followUpDate" value={formData.followUpDate || ''} onChange={handleChange} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="roleSummary">Role Summary (for follow-up)</label>
+              <input type="text" id="roleSummary" name="roleSummary" value={formData.roleSummary || ''} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label htmlFor="relatedProject">Related Project</label>
+              <input type="text" id="relatedProject" name="relatedProject" value={formData.relatedProject || ''} onChange={handleChange} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label htmlFor="followUpMessage">Follow-up Message</label>
+            <textarea
+              id="followUpMessage"
+              name="followUpMessage"
+              value={formData.followUpMessage || ''}
+              onChange={handleChange}
+              rows={5}
+              placeholder="Write or auto-generate your follow-up message..."
+            />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setFormData(prev => ({
+                  ...prev,
+                  followUpMessage: buildFollowUpMessage(prev),
+                }));
+              }}
+            >
+              Auto Generate Follow-up Message
+            </button>
+          </div>
         </div>
 
         <div className="form-section">

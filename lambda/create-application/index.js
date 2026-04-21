@@ -101,6 +101,11 @@ exports.handler = async (event) => {
       coverLetterFileKey: body.coverLetterFileKey || null,
       jobDescription: body.jobDescription || null,
       requirements: body.requirements || null,
+      followUpStatus: body.followUpStatus || 'pending',
+      followUpDate: body.followUpDate || null,
+      followUpMessage: body.followUpMessage || null,
+      roleSummary: body.roleSummary || null,
+      relatedProject: body.relatedProject || null,
       createdAt: now,
       updatedAt: now,
     };

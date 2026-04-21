@@ -118,7 +118,8 @@ export default function Applications() {
       if (
         normalizedSearch &&
         !app.company.toLowerCase().includes(normalizedSearch) &&
-        !app.position.toLowerCase().includes(normalizedSearch)
+        !app.position.toLowerCase().includes(normalizedSearch) &&
+        !(app.location || '').toLowerCase().includes(normalizedSearch)
       ) {
         return false;
       }
@@ -139,10 +140,26 @@ export default function Applications() {
       return acc;
     }, {});
   }, [baseFiltered]);
+  const followUpCounts = useMemo(() => {
+    return baseFiltered.reduce(
+      (acc, app) => {
+        const status = app.followUpStatus || 'pending';
+        if (status === 'completed') {
+          acc.completed += 1;
+        } else {
+          acc.pending += 1;
+        }
+        return acc;
+      },
+      { pending: 0, completed: 0 }
+    );
+  }, [baseFiltered]);
 
   const filteredApplications = useMemo(() => {
     if (filter === 'all') return baseFiltered;
     if (filter === 'active') return baseFiltered.filter(app => isActiveApplication(app.status));
+    if (filter === 'followup-pending') return baseFiltered.filter(app => (app.followUpStatus || 'pending') === 'pending');
+    if (filter === 'followup-completed') return baseFiltered.filter(app => app.followUpStatus === 'completed');
     return baseFiltered.filter(app => app.status === filter);
   }, [baseFiltered, filter]);
 
@@ -264,6 +281,18 @@ export default function Applications() {
         >
           Rejected ({statusCounts.rejected || 0})
         </button>
+        <button
+          className={filter === 'followup-pending' ? 'active' : ''}
+          onClick={() => setFilter('followup-pending')}
+        >
+          Follow-up Pending ({followUpCounts.pending})
+        </button>
+        <button
+          className={filter === 'followup-completed' ? 'active' : ''}
+          onClick={() => setFilter('followup-completed')}
+        >
+          Follow-up Done ({followUpCounts.completed})
+        </button>
       </div>
 
       <div className="search-row">
@@ -271,7 +300,7 @@ export default function Applications() {
           <input
             type="text"
             className="search-input"
-            placeholder="Search company or job title..."
+            placeholder="Search company, job title, or location..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -415,6 +444,9 @@ export default function Applications() {
                           : app.coverLetterUrl
                             ? 'Cover Letter'
                             : 'No documents'}
+                    </span>
+                    <span className="detail-item">
+                      Follow-up: {(app.followUpStatus || 'pending') === 'completed' ? 'Done' : 'Pending'}
                     </span>
                   </div>
                 </Link>

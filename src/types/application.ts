@@ -34,6 +34,11 @@ export interface JobApplication {
   jobDescription?: string;
   requirements?: string;
   parsedJob?: ParsedJobInput;
+  followUpStatus?: 'pending' | 'completed';
+  followUpDate?: string;
+  followUpMessage?: string;
+  roleSummary?: string;
+  relatedProject?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -92,6 +97,11 @@ export interface CreateApplicationInput {
   jobDescription?: string;
   requirements?: string;
   parsedJob?: ParsedJobInput;
+  followUpStatus?: 'pending' | 'completed';
+  followUpDate?: string;
+  followUpMessage?: string;
+  roleSummary?: string;
+  relatedProject?: string;
 }
 
 export interface UpdateApplicationInput {
@@ -120,5 +130,10 @@ export interface UpdateApplicationInput {
   jobDescription?: string;
   requirements?: string;
   parsedJob?: ParsedJobInput;
+  followUpStatus?: 'pending' | 'completed';
+  followUpDate?: string;
+  followUpMessage?: string;
+  roleSummary?: string;
+  relatedProject?: string;
 }
 

@@ -59,6 +59,11 @@ function buildFormData(data: JobApplication): UpdateApplicationInput {
     cvVersions: data.cvVersions ?? [],
     coverLetterVersions: data.coverLetterVersions ?? [],
     parsedJob: data.parsedJob,
+    followUpStatus: data.followUpStatus,
+    followUpDate: data.followUpDate,
+    followUpMessage: data.followUpMessage,
+    roleSummary: data.roleSummary,
+    relatedProject: data.relatedProject,
   };
 }
 
@@ -79,6 +84,27 @@ export default function ApplicationDetail() {
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const cvFileInputRef = useRef<HTMLInputElement>(null);
   const coverLetterFileInputRef = useRef<HTMLInputElement>(null);
+
+  const buildFollowUpMessage = (data: UpdateApplicationInput, current?: JobApplication | null) => {
+    const contact = data.contactName?.trim() || current?.contactName?.trim() || 'Hiring Team';
+    const role = data.position?.trim() || current?.position?.trim() || 'the role';
+    const company = data.company?.trim() || current?.company?.trim() || 'your company';
+    const roleSummary = data.roleSummary?.trim() || current?.roleSummary?.trim();
+    const relatedProject = data.relatedProject?.trim() || current?.relatedProject?.trim();
+    const highlights = [roleSummary, relatedProject ? `A related project is ${relatedProject}.` : '']
+      .filter(Boolean)
+      .join(' ');
+
+    return [
+      `Hi ${contact},`,
+      '',
+      `I wanted to follow up on my application for ${role} at ${company}.`,
+      highlights,
+      'I remain very interested in the opportunity and would be glad to share any additional details.',
+      '',
+      'Best regards,',
+    ].filter(Boolean).join('\n');
+  };
 
   const buildVersionEntry = (
     fileUrl: string,
@@ -823,6 +849,56 @@ export default function ApplicationDetail() {
           </div>
 
           <div className="form-section">
+            <h4>Follow-up</h4>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="followUpStatus">Follow-up Status</label>
+                <select id="followUpStatus" name="followUpStatus" value={formData.followUpStatus || 'pending'} onChange={handleChange}>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="followUpDate">Follow-up Date</label>
+                <input type="date" id="followUpDate" name="followUpDate" value={formData.followUpDate || ''} onChange={handleChange} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="roleSummary">Role Summary (for follow-up)</label>
+                <input type="text" id="roleSummary" name="roleSummary" value={formData.roleSummary || ''} onChange={handleChange} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="relatedProject">Related Project</label>
+                <input type="text" id="relatedProject" name="relatedProject" value={formData.relatedProject || ''} onChange={handleChange} />
+              </div>
+            </div>
+            <div className="form-group">
+              <label htmlFor="followUpMessage">Follow-up Message</label>
+              <textarea
+                id="followUpMessage"
+                name="followUpMessage"
+                value={formData.followUpMessage || ''}
+                onChange={handleChange}
+                rows={5}
+                placeholder="Write or auto-generate your follow-up message..."
+              />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setFormData(prev => ({
+                    ...prev,
+                    followUpMessage: buildFollowUpMessage(prev, application),
+                  }));
+                }}
+              >
+                Auto Generate Follow-up Message
+              </button>
+            </div>
+          </div>
+
+          <div className="form-section">
             <h3>Documents</h3>
 
             <div className="form-row">
@@ -1060,6 +1136,44 @@ export default function ApplicationDetail() {
               <div className="detail-section">
                 <h3>Notes</h3>
                 <p className="notes">{application.notes}</p>
+              </div>
+            )}
+
+            {(application.followUpStatus || application.followUpDate || application.followUpMessage || application.roleSummary || application.relatedProject) && (
+              <div className="detail-section">
+                <h3>Follow-up</h3>
+                <div className="detail-grid">
+                  {application.followUpStatus && (
+                    <div className="detail-item">
+                      <span className="label">Status</span>
+                      <span className="value">{application.followUpStatus}</span>
+                    </div>
+                  )}
+                  {application.followUpDate && (
+                    <div className="detail-item">
+                      <span className="label">Follow-up Date</span>
+                      <span className="value">{formatDateOnlyForDisplay(application.followUpDate)}</span>
+                    </div>
+                  )}
+                  {application.roleSummary && (
+                    <div className="detail-item">
+                      <span className="label">Role Summary</span>
+                      <span className="value">{application.roleSummary}</span>
+                    </div>
+                  )}
+                  {application.relatedProject && (
+                    <div className="detail-item">
+                      <span className="label">Related Project</span>
+                      <span className="value">{application.relatedProject}</span>
+                    </div>
+                  )}
+                </div>
+                {application.followUpMessage && (
+                  <div className="text-block">
+                    <h4>Follow-up Message</h4>
+                    <p className="notes">{application.followUpMessage}</p>
+                  </div>
+                )}
               </div>
             )}
 
