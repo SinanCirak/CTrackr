@@ -660,6 +660,12 @@ export default function ApplicationDetail() {
   const currentView = editing ? { ...application, ...formData } : application;
   const hasCvVersions = (currentView.cvVersions?.length ?? 0) > 0;
   const hasCoverVersions = (currentView.coverLetterVersions?.length ?? 0) > 0;
+  const effectiveFollowUpStatus = application.status === 'rejected'
+    ? 'completed'
+    : (application.followUpStatus || 'pending');
+  const effectiveFollowUpMessage = application.status === 'rejected'
+    ? (application.followUpMessage || REJECTED_FOLLOW_UP_NOTE)
+    : application.followUpMessage;
 
   return (
     <div className="application-detail">
@@ -1217,16 +1223,14 @@ export default function ApplicationDetail() {
               </div>
             )}
 
-            {(application.followUpStatus || application.followUpDate || application.followUpMessage || application.followUpChannel || application.followUpContact || application.followUpContactInfo || application.roleSummary || application.relatedProject) && (
+            {(effectiveFollowUpStatus || application.followUpDate || effectiveFollowUpMessage || application.followUpChannel || application.followUpContact || application.followUpContactInfo || application.roleSummary || application.relatedProject) && (
               <div className="detail-section">
                 <h3>Follow-up</h3>
                 <div className="detail-grid">
-                  {application.followUpStatus && (
-                    <div className="detail-item">
-                      <span className="label">Status</span>
-                      <span className="value">{application.followUpStatus}</span>
-                    </div>
-                  )}
+                  <div className="detail-item">
+                    <span className="label">Status</span>
+                    <span className="value">{effectiveFollowUpStatus}</span>
+                  </div>
                   {application.followUpDate && (
                     <div className="detail-item">
                       <span className="label">Follow-up Date</span>
@@ -1264,10 +1268,10 @@ export default function ApplicationDetail() {
                     </div>
                   )}
                 </div>
-                {application.followUpMessage && (
+                {effectiveFollowUpMessage && (
                   <div className="text-block">
                     <h4>Follow-up Message</h4>
-                    <p className="notes">{application.followUpMessage}</p>
+                    <p className="notes">{effectiveFollowUpMessage}</p>
                   </div>
                 )}
               </div>

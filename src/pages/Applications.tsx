@@ -11,6 +11,8 @@ export default function Applications() {
   const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
   const isActiveApplication = (status: ApplicationStatus) => ['applied', 'interview', 'offer'].includes(status);
   const REJECTED_FOLLOW_UP_NOTE = 'Follow-up completed because application was rejected.';
+  const getEffectiveFollowUpStatus = (app: JobApplication) =>
+    app.status === 'rejected' ? 'completed' : (app.followUpStatus || 'pending');
   const { user } = useAuth();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,10 +146,7 @@ export default function Applications() {
   const followUpCounts = useMemo(() => {
     return baseFiltered.reduce(
       (acc, app) => {
-        if (app.status === 'rejected') {
-          return acc;
-        }
-        const status = app.followUpStatus || 'pending';
+        const status = getEffectiveFollowUpStatus(app);
         if (status === 'completed') {
           acc.completed += 1;
         } else {
@@ -162,11 +161,9 @@ export default function Applications() {
   const filteredApplications = useMemo(() => {
     if (filter === 'all') return baseFiltered;
     if (filter === 'active') return baseFiltered.filter(app => isActiveApplication(app.status));
-    if (filter === 'followup-pending') {
-      return baseFiltered.filter(app => app.status !== 'rejected' && (app.followUpStatus || 'pending') === 'pending');
-    }
+    if (filter === 'followup-pending') return baseFiltered.filter(app => getEffectiveFollowUpStatus(app) === 'pending');
     if (filter === 'followup-completed') {
-      return baseFiltered.filter(app => app.followUpStatus === 'completed' || app.status === 'rejected');
+      return baseFiltered.filter(app => getEffectiveFollowUpStatus(app) === 'completed');
     }
     return baseFiltered.filter(app => app.status === filter);
   }, [baseFiltered, filter]);
@@ -463,7 +460,7 @@ export default function Applications() {
                             : 'No documents'}
                     </span>
                     <span className="detail-item">
-                      Follow-up: {(app.followUpStatus || 'pending') === 'completed' ? 'Done' : 'Pending'}
+                      Follow-up: {getEffectiveFollowUpStatus(app) === 'completed' ? 'Done' : 'Pending'}
                     </span>
                   </div>
                 </Link>
