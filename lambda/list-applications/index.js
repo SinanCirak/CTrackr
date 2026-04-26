@@ -43,8 +43,9 @@ exports.handler = async (event) => {
       // Include both records with matching userId and records without userId (for backward compatibility)
       applications = await scanAllApplications({
         TableName: APPLICATIONS_TABLE,
-        FilterExpression: 'attribute_not_exists(userId) OR userId = :userId',
+        FilterExpression: 'attribute_not_exists(userId) OR attribute_type(userId, :nullType) OR userId = :userId',
         ExpressionAttributeValues: {
+          ':nullType': 'NULL',
           ':userId': userId,
         },
       });
