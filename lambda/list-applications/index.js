@@ -3,6 +3,26 @@ const AWS = require('aws-sdk');
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const APPLICATIONS_TABLE = process.env.APPLICATIONS_TABLE;
 
+async function scanAllApplications(scanParams) {
+  const allItems = [];
+  let lastEvaluatedKey;
+
+  do {
+    const response = await dynamodb.scan({
+      ...scanParams,
+      ExclusiveStartKey: lastEvaluatedKey,
+    }).promise();
+
+    if (Array.isArray(response.Items) && response.Items.length > 0) {
+      allItems.push(...response.Items);
+    }
+
+    lastEvaluatedKey = response.LastEvaluatedKey;
+  } while (lastEvaluatedKey);
+
+  return allItems;
+}
+
 exports.handler = async (event) => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
@@ -17,34 +37,34 @@ exports.handler = async (event) => {
     console.log('UserId from query:', userId);
     console.log('QueryStringParameters:', JSON.stringify(event.queryStringParameters));
 
-    let result;
+    let applications;
     if (userId) {
       // Filter by userId using scan with FilterExpression
       // Include both records with matching userId and records without userId (for backward compatibility)
-      result = await dynamodb.scan({
+      applications = await scanAllApplications({
         TableName: APPLICATIONS_TABLE,
         FilterExpression: 'attribute_not_exists(userId) OR userId = :userId',
         ExpressionAttributeValues: {
           ':userId': userId,
         },
-      }).promise();
+      });
     } else {
       // Get all applications if no userId provided
-      result = await dynamodb.scan({
+      applications = await scanAllApplications({
         TableName: APPLICATIONS_TABLE,
-      }).promise();
+      });
     }
 
-    console.log('DynamoDB result count:', result.Items ? result.Items.length : 0);
+    console.log('DynamoDB result count:', applications.length);
 
     // Sort by createdAt descending (newest first)
-    const applications = (result.Items || []).sort((a, b) => {
+    const sortedApplications = applications.sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return dateB - dateA;
     });
 
-    console.log('Returning applications count:', applications.length);
+    console.log('Returning applications count:', sortedApplications.length);
 
     return {
       statusCode: 200,
@@ -52,7 +72,7 @@ exports.handler = async (event) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify(applications),
+      body: JSON.stringify(sortedApplications),
     };
   } catch (error) {
     console.error('Error listing applications:', error);
