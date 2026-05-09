@@ -1,7 +1,0 @@
-#!/bin/sh
-# Remove Cursor agent co-author trailer (never commit it).
-msg_file="$1"
-tmp="${msg_file}.stripcursor.$$"
-grep -Fvx 'Co-authored-by: Cursor <cursoragent@cursor.com>' "$msg_file" >"$tmp" || exit 1
-mv "$tmp" "$msg_file"
-exit 0
