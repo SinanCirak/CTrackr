@@ -1222,7 +1222,7 @@ export default function NewApplication() {
               <h4>How well your profile matches this role</h4>
             </div>
             <div className="match-score-display">
-              <div className={`match-score-value ${matchScore !== null ? 'has-score' : ''} match-score-value-${matchScoreMeta.tone}`}>
+              <div className={`match-score-value match-score-value-${matchScoreMeta.tone}`}>
                 {calculatingMatch ? '...' : matchScore !== null ? `${matchScore}/100` : '--/100'}
               </div>
             </div>
