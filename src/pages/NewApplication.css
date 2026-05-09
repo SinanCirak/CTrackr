@@ -435,6 +435,12 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
+.match-score-value-neutral {
+  color: #475569;
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
 .match-score-value.has-score {
   color: #3730A3;
   background: linear-gradient(135deg, #EEF2FF 0%, #E0EAFF 100%);
@@ -442,33 +448,33 @@
 }
 
 .match-score-value-low {
-  color: #991B1B;
-  background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
-  border-color: rgba(220, 38, 38, 0.22);
+  color: #B91C1C;
+  background: #FEF2F2;
+  border-color: #FECACA;
 }
 
 .match-score-value-caution {
-  color: #92400E;
-  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
-  border-color: rgba(217, 119, 6, 0.25);
+  color: #C2410C;
+  background: #FFF7ED;
+  border-color: #FED7AA;
 }
 
 .match-score-value-good {
-  color: #92400E;
-  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
-  border-color: rgba(217, 119, 6, 0.25);
+  color: #B45309;
+  background: #FFFBEB;
+  border-color: #FDE68A;
 }
 
 .match-score-value-strong {
-  color: #166534;
-  background: linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%);
-  border-color: rgba(22, 163, 74, 0.22);
+  color: #15803D;
+  background: #F0FDF4;
+  border-color: #BBF7D0;
 }
 
 .match-score-value-excellent {
   color: #1D4ED8;
-  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
-  border-color: rgba(37, 99, 235, 0.24);
+  background: #EFF6FF;
+  border-color: #BFDBFE;
 }
 
 .match-score-actions {

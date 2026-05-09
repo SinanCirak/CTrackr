@@ -2,6 +2,7 @@ export type ApplicationStatus =
   | 'applied'
   | 'interview'
   | 'offer'
+  | 'canceled'
   | 'rejected'
   | 'withdrawn'
   | 'accepted';
@@ -44,6 +45,11 @@ export interface JobApplication {
   followUpContactInfo?: string;
   roleSummary?: string;
   relatedProject?: string;
+  matchScore?: number;
+  matchSummary?: string;
+  matchStrengths?: string[];
+  matchGaps?: string[];
+  matchConfidence?: 'low' | 'medium' | 'high';
   createdAt: string;
   updatedAt: string;
 }
@@ -110,6 +116,11 @@ export interface CreateApplicationInput {
   followUpContactInfo?: string;
   roleSummary?: string;
   relatedProject?: string;
+  matchScore?: number;
+  matchSummary?: string;
+  matchStrengths?: string[];
+  matchGaps?: string[];
+  matchConfidence?: 'low' | 'medium' | 'high';
 }
 
 export interface UpdateApplicationInput {
@@ -146,5 +157,10 @@ export interface UpdateApplicationInput {
   followUpContactInfo?: string;
   roleSummary?: string;
   relatedProject?: string;
+  matchScore?: number;
+  matchSummary?: string;
+  matchStrengths?: string[];
+  matchGaps?: string[];
+  matchConfidence?: 'low' | 'medium' | 'high';
 }
 

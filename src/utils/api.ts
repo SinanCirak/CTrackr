@@ -80,6 +80,19 @@ const mockApplications: JobApplication[] = [
   },
   {
     id: '5',
+    company: 'Shopify',
+    position: 'Frontend Developer',
+    status: 'canceled',
+    appliedDate: '2024-01-18',
+    location: 'Remote',
+    salary: '$130k - $160k',
+    jobUrl: 'https://www.shopify.com/careers',
+    notes: 'Role was canceled by the company before interview stage.',
+    createdAt: '2024-01-18T10:10:00Z',
+    updatedAt: '2024-01-26T09:00:00Z',
+  },
+  {
+    id: '6',
     company: 'Meta',
     position: 'Frontend Engineer',
     status: 'applied',
@@ -92,7 +105,7 @@ const mockApplications: JobApplication[] = [
     updatedAt: '2024-01-22T13:20:00Z',
   },
   {
-    id: '6',
+    id: '7',
     company: 'Netflix',
     position: 'Backend Engineer',
     status: 'interview',
@@ -111,7 +124,7 @@ const mockApplications: JobApplication[] = [
     updatedAt: '2024-01-25T09:00:00Z',
   },
   {
-    id: '7',
+    id: '8',
     company: 'Tesla',
     position: 'Software Engineer',
     status: 'accepted',
@@ -128,7 +141,7 @@ const mockApplications: JobApplication[] = [
     updatedAt: '2024-01-05T11:00:00Z',
   },
   {
-    id: '8',
+    id: '9',
     company: 'Stripe',
     position: 'Payment Systems Engineer',
     status: 'withdrawn',

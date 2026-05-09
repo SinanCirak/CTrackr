@@ -109,6 +109,11 @@ exports.handler = async (event) => {
       followUpContactInfo: body.followUpContactInfo || null,
       roleSummary: body.roleSummary || null,
       relatedProject: body.relatedProject || null,
+      matchScore: typeof body.matchScore === 'number' ? body.matchScore : null,
+      matchSummary: body.matchSummary || null,
+      matchStrengths: Array.isArray(body.matchStrengths) ? body.matchStrengths : [],
+      matchGaps: Array.isArray(body.matchGaps) ? body.matchGaps : [],
+      matchConfidence: body.matchConfidence || null,
       createdAt: now,
       updatedAt: now,
     };

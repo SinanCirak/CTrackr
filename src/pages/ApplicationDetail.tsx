@@ -67,6 +67,11 @@ function buildFormData(data: JobApplication): UpdateApplicationInput {
     followUpContactInfo: data.followUpContactInfo,
     roleSummary: data.roleSummary,
     relatedProject: data.relatedProject,
+    matchScore: data.matchScore,
+    matchSummary: data.matchSummary,
+    matchStrengths: data.matchStrengths,
+    matchGaps: data.matchGaps,
+    matchConfidence: data.matchConfidence,
   };
 }
 
@@ -529,6 +534,7 @@ export default function ApplicationDetail() {
       applied: '#6366F1',
       interview: '#F59E0B',
       offer: '#10B981',
+      canceled: '#9CA3AF',
       rejected: '#EF4444',
       withdrawn: '#6B7280',
       accepted: '#10B981',
@@ -726,6 +732,7 @@ export default function ApplicationDetail() {
                 <option value="applied">Applied</option>
                 <option value="interview">Interview</option>
                 <option value="offer">Offer</option>
+                <option value="canceled">Canceled</option>
                 <option value="rejected">Rejected</option>
                 <option value="withdrawn">Withdrawn</option>
                 <option value="accepted">Accepted</option>
@@ -1138,6 +1145,18 @@ export default function ApplicationDetail() {
                     <span className="value">{formatDateOnlyForDisplay(application.rejectedDate)}</span>
                   </div>
                 )}
+                {typeof application.matchScore === 'number' && (
+                  <div className="detail-item">
+                    <span className="label">Match Score</span>
+                    <span className="value">{application.matchScore}/100</span>
+                  </div>
+                )}
+                {application.matchConfidence && (
+                  <div className="detail-item">
+                    <span className="label">Match Confidence</span>
+                    <span className="value">{application.matchConfidence}</span>
+                  </div>
+                )}
                 {application.location && (
                   <div className="detail-item">
                     <span className="label">
@@ -1211,6 +1230,12 @@ export default function ApplicationDetail() {
                   <div className="text-block">
                     <h4>Requirements & Qualifications</h4>
                     <p className="notes">{application.requirements}</p>
+                  </div>
+                )}
+                {application.matchSummary && (
+                  <div className="text-block">
+                    <h4>Match Summary</h4>
+                    <p className="notes">{application.matchSummary}</p>
                   </div>
                 )}
               </div>

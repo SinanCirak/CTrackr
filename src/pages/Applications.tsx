@@ -190,11 +190,12 @@ export default function Applications() {
     }
   };
 
-  const statusOptions: ApplicationStatus[] = ['applied', 'interview', 'offer', 'rejected', 'withdrawn', 'accepted'];
+  const statusOptions: ApplicationStatus[] = ['applied', 'interview', 'offer', 'canceled', 'rejected', 'withdrawn', 'accepted'];
   const statusLabels: Record<ApplicationStatus, string> = {
     applied: 'Applied',
     interview: 'Interview',
     offer: 'Offer',
+    canceled: 'Canceled',
     rejected: 'Rejected',
     withdrawn: 'Withdrawn',
     accepted: 'Accepted',
@@ -205,6 +206,7 @@ export default function Applications() {
       applied: '#6366F1',
       interview: '#F59E0B',
       offer: '#10B981',
+      canceled: '#9CA3AF',
       rejected: '#EF4444',
       withdrawn: '#6B7280',
       accepted: '#10B981',
@@ -220,10 +222,12 @@ export default function Applications() {
       escapeCsv(formatDateOnlyForDisplay(app.appliedDate)),
       escapeCsv(app.location || '-'),
       escapeCsv(statusLabels[app.status]),
+      escapeCsv(typeof app.matchScore === 'number' ? `${app.matchScore}/100` : '-'),
+      escapeCsv(app.matchSummary || '-'),
     ].join(',')));
 
     const csvContent = [
-      'Company Name,Position,Application Date,Location,Application Status',
+      'Company Name,Position,Application Date,Location,Application Status,Match Score,Match Summary',
       ...rows,
     ].join('\r\n');
 
@@ -288,6 +292,12 @@ export default function Applications() {
           onClick={() => setFilter('offer')}
         >
           Offer ({statusCounts.offer || 0})
+        </button>
+        <button 
+          className={filter === 'canceled' ? 'active' : ''}
+          onClick={() => setFilter('canceled')}
+        >
+          Canceled ({statusCounts.canceled || 0})
         </button>
         <button 
           className={filter === 'rejected' ? 'active' : ''}
@@ -462,6 +472,11 @@ export default function Applications() {
                     <span className="detail-item">
                       Follow-up: {getEffectiveFollowUpStatus(app) === 'completed' ? 'Done' : 'Pending'}
                     </span>
+                    {typeof app.matchScore === 'number' && (
+                      <span className="detail-item">
+                        Match: {app.matchScore}/100
+                      </span>
+                    )}
                   </div>
                 </Link>
               </div>

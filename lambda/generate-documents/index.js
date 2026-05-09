@@ -871,6 +871,9 @@ COMPRESSION RULES:
 * Max 4 experience entries.
 * Max 4 projects (strongest only).
 * Max 6–8 skill categories.
+* Volunteer is optional: include ONLY if it adds clear role-relevant evidence not already covered elsewhere.
+* If volunteer is included, keep it to MAX 1 entry with MAX 1 short bullet.
+* Never add volunteer content that forces page 3 for only minor benefit.
 * Prioritize recent and relevant.
 
 FINAL CHECK:
@@ -881,6 +884,7 @@ FINAL CHECK:
 * Summary leads with primary capability, not secondary skills.
 * Skills ordered by role relevance.
 * No bullet sounds inflated or undefendable in an interview.
+* If content is close to spilling into page 3, trim or remove volunteer first before touching stronger core experience.
 
 ALIGNMENT NOTE:
 * Preserve the candidate’s strongest and most proven experience, and ensure it is not removed or minimized during optimization.

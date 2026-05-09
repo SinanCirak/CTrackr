@@ -48,6 +48,11 @@ export default function NewApplication() {
     followUpContactInfo: '',
     roleSummary: '',
     relatedProject: '',
+    matchScore: undefined,
+    matchSummary: '',
+    matchStrengths: [],
+    matchGaps: [],
+    matchConfidence: undefined,
     cvVersions: [],
     coverLetterVersions: [],
   });
@@ -416,6 +421,14 @@ export default function NewApplication() {
       if (!profile) {
         setMatchScore(null);
         setMatchSummary('Add your profile details first so match score can compare your experience with the job.');
+        setFormData(prev => ({
+          ...prev,
+          matchScore: undefined,
+          matchSummary: '',
+          matchStrengths: [],
+          matchGaps: [],
+          matchConfidence: undefined,
+        }));
         return;
       }
 
@@ -428,10 +441,26 @@ export default function NewApplication() {
 
       setMatchScore(result.score);
       setMatchSummary(summaryParts.join(' | '));
+      setFormData(prev => ({
+        ...prev,
+        matchScore: result.score,
+        matchSummary: summaryParts.join(' | '),
+        matchStrengths: result.strengths || [],
+        matchGaps: result.gaps || [],
+        matchConfidence: result.confidence,
+      }));
     } catch (err) {
       console.error('Failed to calculate match score:', err);
       setMatchScore(null);
       setMatchSummary('Could not calculate match score right now.');
+      setFormData(prev => ({
+        ...prev,
+        matchScore: undefined,
+        matchSummary: '',
+        matchStrengths: [],
+        matchGaps: [],
+        matchConfidence: undefined,
+      }));
       if (!autoTriggered) {
         setError(err instanceof Error ? err.message : 'Failed to calculate match score');
       }
